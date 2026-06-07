@@ -1,0 +1,50 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "coffli-backend",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-12-02",
+  "assets": {
+    "directory": "./static",
+    "not_found_handling": "none"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "ebc3878c322e4197882b74f925e7fd8f"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "D1",
+      "database_name": "coffli-d1",
+      "database_id": "32532985-5361-4e9a-87d9-fa7503d23172"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "coffli-r2"
+    }
+  ],
+  // "vars": {
+  //   "MAINTENANCE_MODE": true,
+  //   "MAINTENANCE_MESSAGE": "The server is undergoing maintenance. Please try again later.",
+  //   "BASIC_AUTH": ["root:passwd"]
+  // }, // 已弃用，后期将使用KV存储变量来实现环境变量的功能
+  "routes": [
+    {
+      "pattern": "coffli.yiiy.dpdns.org",
+      "custom_domain": true
+    }
+  ],
+  // "compatibility_flags": [
+  //   "nodejs_compat"
+  // ],
+  // "ai": {
+  //   "binding": "AI"
+  // },
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 1
+  }
+}

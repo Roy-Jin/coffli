@@ -1,0 +1,17 @@
+{
+  "name": "coffli-backend",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy --minify",
+    "cf-typegen": "wrangler types --env-interface CloudflareBindings"
+  },
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "hono": "^4.12.23",
+    "marked": "^18.0.5"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2"
+  }
+}
