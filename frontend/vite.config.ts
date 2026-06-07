@@ -21,4 +21,8 @@ export default defineConfig({
       "@stores": fileURLToPath(new URL("./src/stores", import.meta.url)),
     },
   },
+  build: {
+    outDir: "../dist",
+    emptyOutDir: true,
+  },
 });

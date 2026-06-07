@@ -37,6 +37,13 @@ declare module 'vue-router/auto-routes' {
       { 404: ParamValue<false> },
       | never
     >,
+    '/admin/[[...all]]': RouteRecordInfo<
+      '/admin/[[...all]]',
+      '/admin/:all(.*)?',
+      { all?: ParamValueZeroOrOne<true> },
+      { all?: ParamValueZeroOrOne<false> },
+      | never
+    >,
     '/login/': RouteRecordInfo<
       '/login/',
       '/login',
@@ -94,6 +101,12 @@ declare module 'vue-router/auto-routes' {
     'src/pages/[...404].vue': {
       routes:
         | '/[...404]'
+      views:
+        | never
+    }
+    'src/pages/admin/[[...all]].vue': {
+      routes:
+        | '/admin/[[...all]]'
       views:
         | never
     }

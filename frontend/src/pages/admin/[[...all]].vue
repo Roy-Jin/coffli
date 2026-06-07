@@ -1,0 +1,1 @@
+<script setup lang="ts">window.location.href = '/admin/index.html';</script>
