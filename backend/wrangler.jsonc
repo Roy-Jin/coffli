@@ -1,29 +1,21 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "coffli-backend-dev",
+  "name": "coffli-backend",
   "main": "src/index.ts",
-  "compatibility_date": "2025-12-02",
+  "compatibility_date": "2026-06-01",
   "kv_namespaces": [
     {
       "binding": "KV",
-      "id": "ebc3878c322e4197882b74f925e7fd8f"
+      "id": "xxxxx"
     }
   ],
   "d1_databases": [
     {
       "binding": "D1",
       "database_name": "coffli-d1",
-      "database_id": "32532985-5361-4e9a-87d9-fa7503d23172"
+      "database_id": "xxxxx"
     }
   ],
-  "r2_buckets": [
-    {
-      "binding": "R2",
-      "bucket_name": "coffli-r2"
-    }
-  ],
-  // 注意：此文件仅用于本地开发（wrangler dev）
-  // 生产部署使用根目录的 wrangler.jsonc（Pages + Functions 模式）
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1

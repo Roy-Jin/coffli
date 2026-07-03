@@ -1,32 +1,57 @@
 <template>
   <div class="home-page">
-    <!-- 主要内容区域 -->
     <main class="main-content">
       <div class="container">
-        <!-- 博客标题区域 -->
-        <div class="blog-header">
-          <h2 class="blog-title">{{ $t('home.latestBlogs') }}</h2>
-          <p class="blog-subtitle">{{ $t('home.blogSubtitle') }}</p>
-        </div>
-
-        <!-- 博客列表 -->
-        <div class="blog-list">
-          <div v-for="blog in blogList" :key="blog.id" class="blog-card">
-            <div class="blog-card-header">
-              <h3 class="blog-card-title">{{ $t(blog.titleKey) }}</h3>
-              <span class="blog-date">{{ blog.date }}</span>
-            </div>
-            <p class="blog-excerpt">{{ $t(blog.excerptKey) }}</p>
-            <div class="blog-card-footer">
-              <span class="blog-author">{{ $t('home.author') }}: {{ blog.author }}</span>
-              <button class="read-more-btn">{{ $t('home.readMore') }}</button>
-            </div>
+        <div class="page-header">
+          <div class="header-text">
+            <h2 class="page-title">{{ $t('home.latestPosts') }}</h2>
+            <p class="page-subtitle">{{ $t('home.postsSubtitle') }}</p>
           </div>
+          <button v-if="userStore.isLoggedIn" class="write-btn" @click="goToNewPost">
+            <Pencil />
+            <span>{{ $t('home.writePost') }}</span>
+          </button>
         </div>
 
-        <!-- 加载更多按钮 -->
-        <div class="load-more-section">
-          <button class="load-more-btn">{{ $t('home.loadMore') }}</button>
+        <div v-if="loading" class="state-box">
+          <div class="spinner"></div>
+          <p>{{ $t('home.loadingPosts') }}</p>
+        </div>
+
+        <div v-else-if="error" class="state-box">
+          <AlertCircle class="state-icon error-icon" />
+          <p>{{ error }}</p>
+          <button class="secondary" @click="fetchPosts">
+            <RotateCcw />
+            <span>{{ $t('common.retry') }}</span>
+          </button>
+        </div>
+
+        <div v-else-if="posts.length === 0" class="state-box">
+          <Feather class="state-icon" />
+          <p>{{ $t('home.noPosts') }}</p>
+        </div>
+
+        <div v-else class="posts-grid">
+          <article v-for="post in posts" :key="post.id" class="post-card" @click="openPost(post.slug)">
+            <h3 class="post-card-title">{{ post.title }}</h3>
+            <p class="post-card-excerpt">{{ getExcerpt(post) }}</p>
+
+            <div v-if="post.tags && post.tags.length" class="post-card-tags">
+              <span v-for="tag in post.tags" :key="tag.id" class="tag-badge">{{ tag.name }}</span>
+            </div>
+
+            <div class="post-card-footer">
+              <span class="post-meta">
+                <Calendar />
+                {{ formatDate(post.created_at) }}
+              </span>
+              <span class="post-meta">
+                <Eye />
+                {{ post.view_count }}
+              </span>
+            </div>
+          </article>
         </div>
       </div>
     </main>
@@ -34,51 +59,65 @@
 </template>
 
 <script setup lang="ts">
-// 示例博客数据（使用国际化键值）
-const blogList = [
-  {
-    id: 1,
-    titleKey: 'blog.vue3Composition',
-    excerptKey: 'blog.vue3Excerpt',
-    author: 'Vue团队',
-    date: '2024-01-15'
-  },
-  {
-    id: 2,
-    titleKey: 'blog.frontendTools',
-    excerptKey: 'blog.frontendExcerpt',
-    author: '开发组',
-    date: '2024-01-12'
-  },
-  {
-    id: 3,
-    titleKey: 'blog.typescriptDeepDive',
-    excerptKey: 'blog.typescriptExcerpt',
-    author: 'TypeScript爱好者',
-    date: '2024-01-10'
-  },
-  {
-    id: 4,
-    titleKey: 'blog.responsiveDesign',
-    excerptKey: 'blog.responsiveExcerpt',
-    author: 'UI/UX设计师',
-    date: '2024-01-08'
-  },
-  {
-    id: 5,
-    titleKey: 'blog.nodejsOptimization',
-    excerptKey: 'blog.nodejsExcerpt',
-    author: '后端开发',
-    date: '2024-01-05'
-  },
-  {
-    id: 6,
-    titleKey: 'blog.gitWorkflow',
-    excerptKey: 'blog.gitExcerpt',
-    author: 'DevOps工程师',
-    date: '2024-01-03'
+import { ref, onMounted, inject } from 'vue'
+import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { Pencil, AlertCircle, RotateCcw, Feather, Calendar, Eye } from 'lucide-vue-next'
+import apiClient, { type Post } from '@/api'
+import { useUserStore } from '@/stores/user'
+
+const router = useRouter()
+const { t } = useI18n()
+const userStore = useUserStore()
+
+const header = inject('header') as { show: () => void; hide: () => void }
+
+const posts = ref<Post[]>([])
+const loading = ref(true)
+const error = ref('')
+
+const formatDate = (dateStr: string): string => {
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+const getExcerpt = (post: Post): string => {
+  const text = post.summary || post.content
+  return text.length > 160 ? text.slice(0, 160).trimEnd() + '…' : text
+}
+
+const openPost = (slug: string) => {
+  router.push(`/post/${slug}`)
+}
+
+const goToNewPost = () => {
+  router.push('/post/new')
+}
+
+const fetchPosts = async () => {
+  loading.value = true
+  error.value = ''
+  try {
+    const res = await apiClient.getPosts({ status: 'published', limit: 20 })
+    if (res.status === 200 && res.data) {
+      posts.value = res.data.posts
+    } else {
+      error.value = res.error?.message || t('home.loadError')
+    }
+  } catch {
+    error.value = t('home.loadError')
+  } finally {
+    loading.value = false
   }
-]
+}
+
+onMounted(() => {
+  header?.show()
+  fetchPosts()
+})
 </script>
 
 <style scoped>
@@ -98,106 +137,160 @@ const blogList = [
   padding: 0 1rem;
 }
 
-.blog-header {
-  text-align: center;
-  margin-bottom: 3rem;
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 2.5rem;
 }
 
-.blog-title {
-  font-size: 2.5rem;
-  color: var(--text-primary);
-  margin-bottom: 0.75rem;
-  font-weight: 600;
+.page-title {
+  font-size: 2.25rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
   background: linear-gradient(135deg, var(--text-primary) 0%, var(--theme-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-.blog-subtitle {
-  font-size: 1.1rem;
+.page-subtitle {
   color: var(--text-secondary);
-  max-width: 600px;
-  margin: 0 auto;
-  line-height: 1.6;
+  font-size: 1rem;
 }
 
-.blog-list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
-  gap: 2rem;
-  margin-bottom: 3rem;
+.write-btn {
+  background: var(--gradient-card);
+  color: var(--text-primary);
+  border: var(--border-light);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(20px);
 }
 
-.blog-card {
+.write-btn:hover {
+  border-color: var(--theme-color);
+  color: var(--theme-color);
+}
+
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  text-align: center;
+  padding: 4rem 2rem;
   background: var(--gradient-card);
   border: var(--border-light);
   border-radius: 1rem;
-  padding: 2rem;
-  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(20px);
+  color: var(--text-secondary);
+}
+
+.state-icon {
+  font-size: 2.5rem;
+  color: var(--text-tertiary);
+}
+
+.error-icon {
+  color: var(--error-color);
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--bg-tertiary);
+  border-top-color: var(--theme-color);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.posts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.post-card {
+  background: var(--gradient-card);
+  border: var(--border-light);
+  border-radius: 1rem;
+  padding: 1.75rem;
   cursor: pointer;
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(20px);
+  transition: all 0.3s ease;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
+  gap: 1rem;
 }
 
-.blog-card:hover {
+.post-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.blog-card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 1.25rem;
-}
-
-.blog-card-title {
-  font-size: 1.375rem;
-  color: var(--text-primary);
-  margin: 0;
-  flex: 1;
-  margin-right: 1rem;
+.post-card-title {
+  font-size: 1.25rem;
   font-weight: 600;
+  color: var(--text-primary);
   line-height: 1.4;
-}
-
-.blog-date {
-  font-size: 0.875rem;
-  color: var(--text-tertiary);
-  white-space: nowrap;
-  font-weight: 500;
-}
-
-.blog-excerpt {
-  color: var(--text-secondary);
-  line-height: 1.6;
-  margin-bottom: 1.5rem;
   display: -webkit-box;
-  line-clamp: 3;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-.blog-card-footer {
+.post-card-excerpt {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.post-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tag-badge {
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.625rem;
+  border-radius: 0.375rem;
+  border: var(--border-light);
+}
+
+.post-card-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-top: auto;
+  padding-top: 0.5rem;
 }
 
-.blog-author {
-  font-size: 0.875rem;
+.post-meta {
+  font-size: 0.8rem;
   color: var(--text-tertiary);
-  font-weight: 500;
-}
-
-.load-more-section {
-  text-align: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
 @media (max-width: 768px) {
@@ -209,27 +302,12 @@ const blogList = [
     padding: 0 0.75rem;
   }
 
-  .blog-title {
+  .page-title {
     font-size: 2rem;
   }
 
-  .blog-list {
-    grid-template-columns: 1fr;
-    gap: 1.5rem;
-  }
-
-  .blog-card {
-    padding: 1.25rem;
-  }
-
-  .blog-card-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.5rem;
-  }
-
-  .blog-card-title {
-    margin-right: 0;
+  .page-header {
+    margin-bottom: 2rem;
   }
 }
 
@@ -238,20 +316,12 @@ const blogList = [
     padding: 1rem 0;
   }
 
-  .container {
-    padding: 0 0.5rem;
-  }
-
-  .blog-title {
+  .page-title {
     font-size: 1.75rem;
   }
 
-  .blog-card {
-    padding: 1rem;
-  }
-
-  .read-more-btn {
-    align-self: flex-end;
+  .post-card {
+    padding: 1.25rem;
   }
 }
 </style>

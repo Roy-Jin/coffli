@@ -37,16 +37,37 @@ declare module 'vue-router/auto-routes' {
       { 404: ParamValue<false> },
       | never
     >,
-    '/admin/[[...all]]': RouteRecordInfo<
-      '/admin/[[...all]]',
-      '/admin/:all(.*)?',
-      { all?: ParamValueZeroOrOne<true> },
-      { all?: ParamValueZeroOrOne<false> },
+    '/admin/': RouteRecordInfo<
+      '/admin/',
+      '/admin',
+      Record<never, never>,
+      Record<never, never>,
       | never
     >,
     '/login/': RouteRecordInfo<
       '/login/',
       '/login',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
+    '/post/[slug]': RouteRecordInfo<
+      '/post/[slug]',
+      '/post/:slug',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | '/post/[slug]/edit'
+    >,
+    '/post/[slug]/edit': RouteRecordInfo<
+      '/post/[slug]/edit',
+      '/post/:slug/edit',
+      { slug: ParamValue<true> },
+      { slug: ParamValue<false> },
+      | never
+    >,
+    '/post/new': RouteRecordInfo<
+      '/post/new',
+      '/post/new',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -104,15 +125,34 @@ declare module 'vue-router/auto-routes' {
       views:
         | never
     }
-    'src/pages/admin/[[...all]].vue': {
+    'src/pages/admin/index.vue': {
       routes:
-        | '/admin/[[...all]]'
+        | '/admin/'
       views:
         | never
     }
     'src/pages/login/index.vue': {
       routes:
         | '/login/'
+      views:
+        | never
+    }
+    'src/pages/post/[slug].vue': {
+      routes:
+        | '/post/[slug]'
+        | '/post/[slug]/edit'
+      views:
+        | 'default'
+    }
+    'src/pages/post/[slug]/edit.vue': {
+      routes:
+        | '/post/[slug]/edit'
+      views:
+        | never
+    }
+    'src/pages/post/new.vue': {
+      routes:
+        | '/post/new'
       views:
         | never
     }

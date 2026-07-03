@@ -3,14 +3,14 @@
   <div v-if="toast.show" class="toast-container">
     <div :class="['toast', `toast-${toast.type}`, { 'toast-leaving': toast.leaving }]">
       <div class="toast-icon">
-        <i :class="getToastIcon(toast.type)"></i>
+        <component :is="toastIcons[toast.type] || Info" />
       </div>
       <div class="toast-content">
         <div class="toast-title">{{ toast.title }}</div>
         <div class="toast-message">{{ toast.message }}</div>
       </div>
       <button class="toast-close" @click="hideToast">
-        <i class="fas fa-times"></i>
+        <X />
       </button>
     </div>
   </div>
@@ -20,11 +20,11 @@
     <div :class="['modal', `modal-${modal.type}`, { 'modal-leaving': modal.leaving }]">
       <div class="modal-header">
         <div class="modal-icon">
-          <i :class="getModalIcon(modal.type)"></i>
+          <component :is="modalIcons[modal.type] || Info" />
         </div>
         <div class="modal-title">{{ modal.title }}</div>
         <button class="modal-close" @click="hideModal">
-          <i class="fas fa-times"></i>
+          <X />
         </button>
       </div>
 
@@ -45,7 +45,6 @@
             <div v-for="(option, index) in modal.options" :key="index"
               :class="['select-option', { 'selected': modal.selected === option.value }]"
               @click="handleSelect(option.value)">
-              <i v-if="option.icon" :class="option.icon"></i>
               <span>{{ option.label }}</span>
             </div>
           </div>
@@ -69,8 +68,32 @@
 <script setup lang="ts">
 import { ref, reactive, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  Info,
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  HelpCircle,
+  List,
+  Pencil,
+  X,
+} from 'lucide-vue-next'
 
 const { t } = useI18n()
+
+const toastIcons: Record<string, typeof Info> = {
+  info: Info,
+  success: CheckCircle,
+  warning: AlertTriangle,
+  error: XCircle,
+}
+
+const modalIcons: Record<string, typeof Info> = {
+  info: Info,
+  confirm: HelpCircle,
+  select: List,
+  input: Pencil,
+}
 
 // 吐司弹窗状态 - 改回单个对象
 const toast = reactive({
@@ -90,7 +113,7 @@ const modal = reactive({
   type: 'info', // info, confirm, select, input
   title: '',
   message: '',
-  options: [] as Array<{ label: string; value: any; icon?: string }>,
+  options: [] as Array<{ label: string; value: any }>,
   selected: null as any,
   inputType: 'text',
   placeholder: '',
@@ -105,27 +128,8 @@ const modal = reactive({
 // 输入框值
 const inputValue = ref('')
 
-// 吐司弹窗图标
-const getToastIcon = (type: string) => {
-  const icons = {
-    info: 'fas fa-info-circle',
-    success: 'fas fa-check-circle',
-    warning: 'fas fa-exclamation-triangle',
-    error: 'fas fa-times-circle'
-  }
-  return icons[type as keyof typeof icons] || icons.info
-}
-
-// 模态框图标
-const getModalIcon = (type: string) => {
-  const icons = {
-    info: 'fas fa-info-circle',
-    confirm: 'fas fa-question-circle',
-    select: 'fas fa-list',
-    input: 'fas fa-edit'
-  }
-  return icons[type as keyof typeof icons] || icons.info
-}
+// True when a success action (confirm/input confirm/select) was taken, so onCancel must not fire
+const wasConfirmed = ref(false)
 
 // 显示吐司弹窗 - 单个吐司显示
 const showToast = (options: {
@@ -230,14 +234,17 @@ const hideModal = () => {
   setTimeout(() => {
     modal.show = false
     modal.leaving = false
-    if (modal.onCancel) {
+    // Only fire onCancel if the user did not take a success action (confirm/select/input)
+    if (!wasConfirmed.value && modal.onCancel) {
       modal.onCancel()
     }
+    wasConfirmed.value = false
   }, 300)
 }
 
 // 处理确认
 const handleConfirm = () => {
+  wasConfirmed.value = true
   if (modal.onConfirm) {
     modal.onConfirm()
   }
@@ -251,6 +258,7 @@ const handleCancel = () => {
 
 // 处理选择
 const handleSelect = (value: any) => {
+  wasConfirmed.value = true
   modal.selected = value
   if (modal.onSelect) {
     modal.onSelect(value)
@@ -260,6 +268,7 @@ const handleSelect = (value: any) => {
 
 // 处理输入确认
 const handleInputConfirm = () => {
+  wasConfirmed.value = true
   if (modal.onConfirm) {
     modal.onConfirm(inputValue.value)
   }
@@ -322,7 +331,8 @@ defineExpose({
 
 .toast-icon {
   margin-right: 0.75rem;
-  font-size: 1.25rem;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 .toast-info .toast-icon {
@@ -413,7 +423,8 @@ defineExpose({
 
 .modal-icon {
   margin-right: 0.75rem;
-  font-size: 1.5rem;
+  width: 1.5rem;
+  height: 1.5rem;
 }
 
 .modal-info .modal-icon {
@@ -518,7 +529,7 @@ defineExpose({
   border-color: var(--theme-color);
 }
 
-.select-option i {
+.select-option svg {
   margin-right: 0.5rem;
   color: var(--theme-color);
 }

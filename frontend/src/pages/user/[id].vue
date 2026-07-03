@@ -2,58 +2,47 @@
   <div class="profile-page">
     <main class="main-content">
       <div class="container">
-        <!-- 用户信息卡片 -->
         <div class="profile-card card card-lg">
-          <!-- 头像区域 -->
           <div class="avatar-section">
             <div class="avatar-container">
-              <img :src="userAvatar" alt="User Avatar" class="avatar" />
+              <img :src="user?.avatar_url || defaultAvatar" alt="Avatar" class="avatar" />
             </div>
-            <h1 class="nickname text-gradient">{{ userInfo.nickname || userInfo.username }}</h1>
-            <p class="username">@{{ userInfo.username }}</p>
+            <h1 class="nickname text-gradient">{{ user?.display_name || user?.github_login }}</h1>
+            <p class="username">@{{ user?.github_login }}</p>
+            <span v-if="user?.role === 'admin'" class="role-badge">Admin</span>
           </div>
 
-          <!-- 基本信息 -->
           <div class="info-section">
-            <h2 class="section-title">{{ $t('profile.basicInfo') }}</h2>
+            <h2 class="section-title">Basic Info</h2>
             <div class="info-grid">
-              <div class="info-item">
-                <label class="info-label">{{ $t('profile.role') }}:</label>
-                <span class="info-value">{{ userInfo.role }}</span>
+              <div v-if="user?.email" class="info-item">
+                <label class="info-label">Email</label>
+                <span class="info-value">{{ user.email }}</span>
               </div>
               <div class="info-item">
-                <label class="info-label">{{ $t('profile.gender') }}:</label>
-                <span class="info-value">{{ getGenderText(userInfo.gender) }}</span>
+                <label class="info-label">Joined</label>
+                <span class="info-value">{{ formatDate(user?.created_at) }}</span>
               </div>
               <div class="info-item">
-                <label class="info-label">{{ $t('profile.lastLogin') }}:</label>
-                <span class="info-value">{{ formatTime(userInfo.last_login) }}</span>
+                <label class="info-label">Last Login</label>
+                <span class="info-value">{{ formatDate(user?.last_login_at) }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 额外信息 -->
-          <div v-if="hasAdditionalInfo" class="info-section">
-            <h2 class="section-title">{{ $t('profile.additionalInfo') }}</h2>
-            <div class="info-grid">
-              <div v-if="extraInfo.email" class="info-item">
-                <label class="info-label">{{ $t('profile.email') }}:</label>
-                <span class="info-value">{{ extraInfo.email }}</span>
-              </div>
-              <div v-if="extraInfo.phone" class="info-item">
-                <label class="info-label">{{ $t('profile.phone') }}:</label>
-                <span class="info-value">{{ extraInfo.phone }}</span>
-              </div>
-              <div v-if="extraInfo.birthday" class="info-item">
-                <label class="info-label">{{ $t('profile.birthday') }}:</label>
-                <span class="info-value">{{ extraInfo.birthday }}</span>
-              </div>
-              <div v-if="extraInfo.bio" class="info-item">
-                <label class="info-label">{{ $t('profile.bio') }}:</label>
-                <span class="info-value">{{ extraInfo.bio }}</span>
-              </div>
-            </div>
+          <div v-if="user?.bio" class="info-section">
+            <h2 class="section-title">Bio</h2>
+            <p class="bio-text">{{ user.bio }}</p>
           </div>
+        </div>
+
+        <div v-if="loading" class="loading-state">
+          <Loader2 class="spin" />
+        </div>
+
+        <div v-if="error" class="error-state card">
+          <p>{{ error }}</p>
+          <router-link to="/" class="back-link">Back to Home</router-link>
         </div>
       </div>
     </main>
@@ -61,112 +50,54 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, inject } from 'vue'
-import defaultAvatar from "@/assets/defaultAvatar.svg";
+import { ref, onMounted, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import apiClient from '@/api/index'
+import { Loader2 } from 'lucide-vue-next'
+import apiClient, { type User } from '@/api'
+import defaultAvatar from '@/assets/defaultAvatar.svg'
 
 const route = useRoute()
-const { t } = useI18n()
+const router = useRouter()
 
+const user = ref<User | null>(null)
 const loading = ref(false)
-const userInfo = ref({
-  username: '',
-  nickname: '',
-  last_login: 0,
-  role: 'USER',
-  gender: 0,
-  reg_time: 0,
-  avatar: false,
-  info: ''
-})
+const error = ref('')
 
-// 注入全局Modal方法
 const modal = inject('modal') as {
   showToast: (options: any) => void
-  hideToast: () => void
-  showModal: (options: any) => void
-  hideModal: () => void
+} | undefined
+
+const formatDate = (dateStr?: string | null) => {
+  if (!dateStr) return 'Unknown'
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    year: 'numeric', month: 'short', day: 'numeric',
+  })
 }
 
-// 用户头像
-const userAvatar = computed(() => {
-  if (userInfo.value.avatar) {
-    return apiClient.getBaseUrl() + `/api/v1/users/${userInfo.value.username}/avatar`;
-  } else {
-    return defaultAvatar;
-  }
-})
-
-// 解析额外信息
-const extraInfo = computed(() => {
-  try {
-    return JSON.parse(userInfo.value.info)
-  } catch {
-    return {
-      ip: '',
-      email: '',
-      phone: '',
-      birthday: '',
-      bio: ''
-    }
-  }
-})
-
-// 检查是否有额外信息
-const hasAdditionalInfo = computed(() => {
-  const info = extraInfo.value
-  return info.email || info.phone || info.birthday || info.bio
-})
-
-// 格式化时间
-const formatTime = (timestamp: number) => {
-  if (!timestamp) return t('profile.unknown')
-  return new Date(timestamp).toLocaleString()
-}
-
-// 获取性别文本
-const getGenderText = (gender: number) => {
-  const genderMap = {
-    1: t('profile.male'),
-    2: t('profile.female'),
-    3: t('profile.unknown')
-  }
-  return genderMap[gender as keyof typeof genderMap] || t('profile.unknown')
-}
-
-// 获取用户信息
-const fetchUserInfo = async () => {
-  const userId = route.params.id as string
-  if (!userId) return
+const fetchUser = async () => {
+  const username = route.params.id as string
+  if (!username) return
 
   loading.value = true
+  error.value = ''
   try {
-    const response = await apiClient.getUserInfo(userId)
-    if (response.status === 200 && response.data) {
-      userInfo.value = response.data
+    const res = await apiClient.getUserInfo(username)
+    if (res.status === 200 && res.data?.user) {
+      user.value = res.data.user
+    } else if (res.status === 404) {
+      error.value = 'User not found'
     } else {
-      modal?.showModal({
-        type: 'info',
-        message: response.error?.message || t('profile.networkError'),
-        onCancel: () => useRouter().replace('/')
-      })
+      error.value = res.error?.message || 'Failed to load user'
     }
-  } catch (error) {
-    console.error(error)
-    modal?.showModal({
-      type: 'info',
-      message: t('profile.networkError'),
-      onCancel: () => useRouter().replace('/')
-    })
+  } catch {
+    error.value = 'Network error'
   } finally {
     loading.value = false
   }
 }
 
 onMounted(() => {
-  fetchUserInfo()
+  fetchUser()
 })
 </script>
 
@@ -186,14 +117,13 @@ onMounted(() => {
 
 .profile-card {
   border-radius: 1.5rem;
-  transition: all 0.3s ease;
 }
 
 .avatar-section {
   text-align: center;
   margin-bottom: 2.5rem;
   padding-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-light);
 }
 
 .avatar-container {
@@ -207,25 +137,28 @@ onMounted(() => {
   border: 4px solid var(--theme-color);
   object-fit: cover;
   box-shadow: var(--shadow-lg);
-  transition: all 0.3s ease;
-}
-
-.avatar:hover {
-  transform: scale(1.05);
-  box-shadow: 0 10px 30px var(--theme-hover);
 }
 
 .nickname {
   font-size: 2.25rem;
   margin-bottom: 0.5rem;
   font-weight: 700;
-  letter-spacing: -0.5px;
 }
 
 .username {
   font-size: 1.2rem;
-  margin: 0;
-  font-weight: 500;
+  color: var(--text-secondary);
+  margin: 0 0 0.75rem 0;
+}
+
+.role-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  background: var(--theme-color);
+  color: white;
 }
 
 .info-section {
@@ -251,8 +184,8 @@ onMounted(() => {
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .info-item {
@@ -261,61 +194,54 @@ onMounted(() => {
   align-items: center;
   padding: 1.25rem;
   border-radius: 0.75rem;
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.info-item:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--theme-color);
+  background: var(--bg-tertiary);
+  border: var(--border-light);
 }
 
 .info-label {
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.95rem;
+  color: var(--text-secondary);
 }
 
 .info-value {
   font-weight: 500;
 }
 
-@media (max-width: 768px) {
-  .main-content {
-    padding: 1rem 0;
-  }
-
-  .avatar {
-    width: 120px;
-    height: 120px;
-  }
-
-  .nickname {
-    font-size: 2rem;
-  }
-
-  .info-grid {
-    grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .info-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    text-align: left;
-  }
+.bio-text {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  font-size: 1rem;
 }
 
-@media (max-width: 480px) {
-  .avatar {
-    width: 100px;
-    height: 100px;
-  }
+.loading-state {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.5rem;
+  color: var(--text-tertiary);
+}
 
-  .nickname {
-    font-size: 1.75rem;
-  }
+.error-state {
+  text-align: center;
+  padding: 2rem;
+  margin-top: 1rem;
+}
+
+.error-state p {
+  color: var(--error-color);
+  margin-bottom: 1rem;
+}
+
+.back-link {
+  color: var(--theme-color);
+  text-decoration: none;
+}
+
+@media (max-width: 768px) {
+  .main-content { padding: 1rem 0; }
+  .avatar { width: 120px; height: 120px; }
+  .nickname { font-size: 2rem; }
+  .info-grid { grid-template-columns: 1fr; }
+  .info-item { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
 }
 </style>

@@ -1,14 +1,45 @@
 import { useUserStore } from "@/stores/user";
 import { useSettingStore } from "@/stores/setting";
 
-// 统一响应格式
+export interface User {
+  id: number;
+  github_id: string;
+  github_login: string;
+  display_name: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  email: string | null;
+  role: string;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+export interface Post {
+  id: number;
+  author_id: number;
+  slug: string;
+  title: string;
+  content: string;
+  summary: string | null;
+  cover_image_url: string | null;
+  status: "draft" | "published" | "archived";
+  is_pinned: number;
+  view_count: number;
+  created_at: string;
+  updated_at: string;
+  published_at: string | null;
+  tags?: Tag[];
+}
+
+export interface Tag {
+  id: number;
+  name: string;
+  slug: string;
+}
+
 interface ApiResponse<T = any> {
   status: number;
   data?: T;
-  meta?: {
-    token?: string;
-    [key: string]: any;
-  };
   error?: {
     code: string;
     message: string;
@@ -16,103 +47,52 @@ interface ApiResponse<T = any> {
   };
 }
 
-// 用户信息接口
-interface User {
-  username: string;
-  nickname: string;
-  last_login: number;
-  deleted_at: number;
-  password: string;
-  role: string;
-  gender: number;
-  reg_time: number;
-  active: boolean;
-  avatar: boolean;
-  id: number;
-  info: any; // JSON格式的字符串，包含ip、email、phone、birthday、bio等信息
-}
-
-// 博客接口
-interface Blog {
-  id: number;
-  user_id: string;
-  title: string;
-  desc: string;
-  created_at: number;
-  updated_at: number;
-  active: boolean;
-}
-
 class APIClient {
-  private baseUrl: string;
-  private userStore: ReturnType<typeof useUserStore>;
-
-  constructor() {
-    this.baseUrl = useSettingStore().getApiBaseUrl;
-    this.userStore = useUserStore();
+  private get baseUrl(): string {
+    return useSettingStore().getApiBaseUrl;
   }
 
-  // 获取认证头信息
-  private async getAuthHeaders(): Promise<Record<string, string>> {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-
-    // 添加认证头信息
-    const token = this.userStore.getToken;
-
-    if (token) {
-      headers["Authorization"] = "Bearer " + token;
-    }
-
-    return headers;
-  }
-
-  // 基础请求方法
-  private async request<T>(
-    path: string,
-    options: RequestInit = {},
-  ): Promise<ApiResponse<T>> {
-    const url = new URL(path, this.baseUrl);
-    const authHeaders = await this.getAuthHeaders();
-
-    const response = await fetch(url.toString(), {
-      ...options,
-      headers: {
-        ...authHeaders,
-        ...options.headers,
-      },
-    });
-
-    try {
-      const data = await response.json();
-      return {
-        status: response.status,
-        data: data.data,
-        meta: data.meta,
-        error: data.error,
-      };
-    } catch (error: any) {
-      return {
-        status: response.status,
-        error,
-      };
-    }
+  private get userStore(): ReturnType<typeof useUserStore> {
+    return useUserStore();
   }
 
   getBaseUrl() {
     return this.baseUrl;
   }
 
-  // GET请求
-  async get<T>(
+  private async request<T>(
     path: string,
-    params?: Record<string, string>,
+    options: RequestInit = {},
   ): Promise<ApiResponse<T>> {
+    const url = new URL(path, this.baseUrl);
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string>),
+    };
+
+    const response = await fetch(url.toString(), {
+      ...options,
+      headers,
+      credentials: "include",
+    });
+
+    try {
+      const json = await response.json();
+      return {
+        status: response.status,
+        data: json.data,
+        error: json.error,
+      };
+    } catch {
+      return { status: response.status };
+    }
+  }
+
+  async get<T>(path: string, params?: Record<string, string>): Promise<ApiResponse<T>> {
     const url = new URL(path, this.baseUrl);
     if (params) {
       Object.keys(params).forEach((key) => {
-        if (params[key] !== undefined) {
+        if (params[key] !== undefined && params[key] !== "") {
           url.searchParams.append(key, params[key]);
         }
       });
@@ -120,7 +100,6 @@ class APIClient {
     return this.request<T>(url.pathname + url.search);
   }
 
-  // POST请求
   async post<T>(path: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(path, {
       method: "POST",
@@ -128,7 +107,6 @@ class APIClient {
     });
   }
 
-  // PATCH请求
   async patch<T>(path: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(path, {
       method: "PATCH",
@@ -136,125 +114,126 @@ class APIClient {
     });
   }
 
-  // PUT请求
   async put<T>(path: string, body?: any): Promise<ApiResponse<T>> {
     return this.request<T>(path, {
       method: "PUT",
-      body: body ? body : undefined,
-      headers: {
-        "Content-Type": body.type,
-      },
+      body: body ? JSON.stringify(body) : undefined,
     });
   }
 
-  // DELETE请求
   async delete<T>(path: string): Promise<ApiResponse<T>> {
-    return this.request<T>(path, {
-      method: "DELETE",
-    });
+    return this.request<T>(path, { method: "DELETE" });
   }
 
-  // ========== 用户管理接口 ==========
+  // ========== Auth ==========
 
-  // 用户注册
-  async register(userData: {
-    username: string;
-    password: string;
-    nickname?: string;
-  }): Promise<ApiResponse> {
-    return this.post("/api/v1/auth/register", userData);
-  }
-
-  // 用户登录
-  async login(credentials: {
-    username: string;
-    password: string;
-  }): Promise<ApiResponse<ApiResponse>> {
-    const response = await this.post<ApiResponse>(
-      "/api/v1/auth/login",
-      credentials,
-    );
-
-    if (response.status === 200 && response.data) {
-      this.userStore.setUser(response.data);
-      this.userStore.setToken(response.meta?.token || "");
+  async login(username: string, password: string): Promise<ApiResponse<{ user: User }>> {
+    const res = await this.post<{ user: User }>("/api/v1/auth/login", { username, password });
+    if (res.status === 200 && res.data?.user) {
+      this.userStore.setUser(res.data.user);
     }
-
-    return response;
+    return res;
   }
 
-  // 用户登出
   async logout(): Promise<ApiResponse> {
-    const response = await this.post("/api/v1/auth/logout");
-
-    if (response.status === 200) {
-      this.userStore.clearAuth();
-    }
-
-    return response;
-  }
-
-  // 获取用户信息
-  async getUserInfo(username?: string): Promise<ApiResponse<User>> {
-    const response = await this.get<User>(
-      "/api/v1/users/" + (username || this.userStore.getUsername),
-    );
-    return response;
-  }
-
-  // 更新用户信息
-  async updateUserInfo(userData: {
-    nickname?: string;
-    gender?: number;
-    info?: any;
-  }): Promise<ApiResponse> {
-    return this.patch("/api/v1/users/" + this.userStore.getUsername, userData);
-  }
-
-  // 更新用户头像
-  async updateUserAvatar(avatar: File): Promise<ApiResponse> {
-    this.userStore.setUser({...this.userStore.getUser, avatar: false });
-    return this.put(
-      "/api/v1/users/" + this.userStore.getUsername + "/avatar",
-      avatar,
-    );
+    const res = await this.post("/api/v1/auth/logout");
+    this.userStore.clearAuth();
+    return res;
   }
 
   async checkAuth(): Promise<boolean> {
-    const response = await this.get<User>("/api/v1/auth");
-    if (response.status === 401) {
-      return false;
+    const res = await this.get<{ user: User }>("/api/v1/auth/me");
+    if (res.status === 200 && res.data?.user) {
+      this.userStore.setUser(res.data.user);
+      return true;
     }
-    return true;
+    return false;
   }
 
-  // ========== 博客管理接口 ==========
-
-  // 获取博客
-  async getBlog(blogId: string): Promise<ApiResponse<Blog>> {
-    return this.get<Blog>("/api/v1/posts/" + blogId);
+  async setPassword(password: string): Promise<ApiResponse> {
+    return this.post("/api/v1/auth/password", { password });
   }
 
-  // 创建博客
-  async createBlog(blogData: {
+  getGithubLoginUrl(): string {
+    return new URL("/api/v1/auth/github", this.baseUrl).toString();
+  }
+
+  // ========== Users ==========
+
+  async getUserInfo(username: string): Promise<ApiResponse<{ user: User }>> {
+    return this.get<{ user: User }>(`/api/v1/users/${encodeURIComponent(username)}`);
+  }
+
+  async updateProfile(data: {
+    display_name?: string;
+    email?: string;
+    bio?: string;
+    avatar_url?: string;
+  }): Promise<ApiResponse<{ user: User }>> {
+    const res = await this.patch<{ user: User }>("/api/v1/users/me", data);
+    if (res.status === 200 && res.data?.user) {
+      this.userStore.setUser(res.data.user);
+    }
+    return res;
+  }
+
+  async deleteAccount(): Promise<ApiResponse> {
+    const res = await this.delete("/api/v1/users/me");
+    this.userStore.clearAuth();
+    return res;
+  }
+
+  // ========== Posts ==========
+
+  async getPosts(params?: {
+    status?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<ApiResponse<{ posts: Post[] }>> {
+    const query: Record<string, string> = {};
+    if (params?.status) query.status = params.status;
+    if (params?.limit) query.limit = String(params.limit);
+    if (params?.offset) query.offset = String(params.offset);
+    return this.get<{ posts: Post[] }>("/api/v1/posts", query);
+  }
+
+  async getPost(slug: string): Promise<ApiResponse<{ post: Post }>> {
+    return this.get<{ post: Post }>(`/api/v1/posts/${encodeURIComponent(slug)}`);
+  }
+
+  async createPost(data: {
+    slug: string;
     title: string;
     content: string;
-  }): Promise<ApiResponse> {
-    return this.post("/api/v1/posts", blogData);
+    summary?: string;
+    status?: "draft" | "published";
+    tags?: string[];
+  }): Promise<ApiResponse<{ post: Post }>> {
+    return this.post<{ post: Post }>("/api/v1/posts", data);
   }
 
-  // 删除博客
-  async deleteBlog(blogId: string): Promise<ApiResponse> {
-    return this.delete("/api/v1/posts/delete/" + blogId);
+  async updatePost(slug: string, data: {
+    title?: string;
+    content?: string;
+    summary?: string;
+    status?: "draft" | "published" | "archived";
+    is_pinned?: boolean;
+    tags?: string[];
+  }): Promise<ApiResponse<{ post: Post }>> {
+    return this.put<{ post: Post }>(`/api/v1/posts/${encodeURIComponent(slug)}`, data);
   }
 
-  // 健康检查
-  async healthCheck(): Promise<ApiResponse<string>> {
-    return this.get<string>("/");
+  async deletePost(slug: string): Promise<ApiResponse> {
+    return this.delete(`/api/v1/posts/${encodeURIComponent(slug)}`);
+  }
+
+  // ========== Health ==========
+
+  async healthCheck(): Promise<boolean> {
+    const res = await this.get("/api/ok");
+    return res.status === 200;
   }
 }
 
-// 创建单例实例
 const apiClient = new APIClient();
-
 export default apiClient;

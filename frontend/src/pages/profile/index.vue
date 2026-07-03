@@ -2,69 +2,75 @@
   <div class="profile-page">
     <main class="main-content">
       <div class="container">
-        <!-- 用户信息卡片 -->
-        <div class="profile-card card card-lg">
-          <!-- 头像区域 -->
+        <div class="profile-card">
+          <!-- Avatar + identity -->
           <div class="avatar-section">
             <div class="avatar-container">
-              <img :src="userAvatar" alt="User Avatar" class="avatar" />
+              <img :src="userAvatar" :alt="$t('header.avatarAlt')" class="avatar" />
             </div>
-            <h1 class="nickname text-gradient">{{ userInfo.nickname || userInfo.username }}</h1>
-            <p class="username">@{{ userInfo.username }}</p>
+            <h1 class="display-name text-gradient">{{ displayName }}</h1>
+            <p class="username">@{{ githubLogin }}</p>
+            <span class="role-badge" :class="{ 'role-badge--admin': isAdmin }">
+              <Shield v-if="isAdmin" />
+              <User v-else />
+              {{ roleLabel }}
+            </span>
           </div>
 
-          <!-- 基本信息 -->
+          <!-- Basic info -->
           <div class="info-section">
             <h2 class="section-title">{{ $t('profile.basicInfo') }}</h2>
             <div class="info-grid">
               <div class="info-item">
-                <label class="info-label">{{ $t('profile.role') }}:</label>
-                <span class="info-value">{{ userInfo.role }}</span>
+                <span class="info-label"><Mail /> {{ $t('profile.email') }}</span>
+                <span class="info-value">{{ userEmail }}</span>
               </div>
               <div class="info-item">
-                <label class="info-label">{{ $t('profile.gender') }}:</label>
-                <span class="info-value">{{ getGenderText(userInfo.gender) }}</span>
+                <span class="info-label"><CalendarDays /> {{ $t('profile.registrationTime') }}</span>
+                <span class="info-value">{{ memberSince }}</span>
               </div>
               <div class="info-item">
-                <label class="info-label">{{ $t('profile.lastLogin') }}:</label>
-                <span class="info-value">{{ formatTime(userInfo.last_login) }}</span>
+                <span class="info-label"><Clock /> {{ $t('profile.lastLogin') }}</span>
+                <span class="info-value">{{ lastLogin }}</span>
               </div>
             </div>
           </div>
 
-          <!-- 额外信息 -->
-          <div v-if="hasAdditionalInfo" class="info-section">
-            <h2 class="section-title">{{ $t('profile.additionalInfo') }}</h2>
-            <div class="info-grid">
-              <div v-if="extraInfo.email" class="info-item">
-                <label class="info-label">{{ $t('profile.email') }}:</label>
-                <span class="info-value">{{ extraInfo.email }}</span>
-              </div>
-              <div v-if="extraInfo.phone" class="info-item">
-                <label class="info-label">{{ $t('profile.phone') }}:</label>
-                <span class="info-value">{{ extraInfo.phone }}</span>
-              </div>
-              <div v-if="extraInfo.birthday" class="info-item">
-                <label class="info-label">{{ $t('profile.birthday') }}:</label>
-                <span class="info-value">{{ extraInfo.birthday }}</span>
-              </div>
-              <div v-if="extraInfo.bio" class="info-item">
-                <label class="info-label">{{ $t('profile.bio') }}:</label>
-                <span class="info-value">{{ extraInfo.bio }}</span>
-              </div>
-            </div>
+          <!-- Bio -->
+          <div v-if="userBio" class="info-section">
+            <h2 class="section-title">{{ $t('profile.bio') }}</h2>
+            <p class="bio-text">{{ userBio }}</p>
           </div>
 
-          <!-- 操作按钮区域 -->
+          <!-- Primary actions -->
           <div class="action-section">
-            <button class="edit-btn button" @click="handleEdit">
-              <i class="fas fa-edit"></i>
-              {{ $t('profile.edit') }}
+            <button class="btn btn-primary" @click="handleEdit">
+              <Pencil /> {{ $t('profile.edit') }}
             </button>
-            <button class="logout-btn button" @click="handleLogout">
-              <i class="fas fa-sign-out-alt"></i>
-              {{ $t('profile.logout') }}
+            <button class="btn btn-secondary" @click="handleLogout">
+              <LogOut /> {{ $t('profile.logout') }}
             </button>
+          </div>
+
+          <!-- Password -->
+          <div class="action-section">
+            <button class="btn btn-secondary" @click="handleChangePassword">
+              <Key /> {{ $t('profile.changePassword') }}
+            </button>
+          </div>
+
+          <!-- Danger zone -->
+          <div class="danger-zone">
+            <h2 class="section-title danger-title">{{ $t('profile.dangerZone') }}</h2>
+            <div class="danger-action">
+              <div class="danger-text">
+                <span class="danger-label">{{ $t('profile.deleteAccount') }}</span>
+                <span class="danger-desc">{{ $t('profile.deleteAccountConfirm') }}</span>
+              </div>
+              <button class="btn btn-danger" @click="handleDeleteAccount">
+                <Trash2 /> {{ $t('common.delete') }}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -74,174 +80,173 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, inject } from 'vue'
-import defaultAvatar from "@/assets/defaultAvatar.svg";
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import {
+  Shield,
+  User,
+  Mail,
+  CalendarDays,
+  Clock,
+  Pencil,
+  LogOut,
+  Key,
+  Trash2,
+} from 'lucide-vue-next'
 import { useUserStore } from '@/stores/user'
-import apiClient from '@/api/index'
+import apiClient from '@/api'
+import defaultAvatar from '@/assets/defaultAvatar.svg'
 
-const router = useRouter()
-const { t } = useI18n()
-const userStore = useUserStore()
-const loading = ref(false)
-
-// 注入全局Modal方法
-const modal = inject('modal') as {
-  showToast: (options: any) => void
+interface ModalApi {
+  showToast: (options: { type?: string; title?: string; message: string; duration?: number }) => void
   hideToast: () => void
   showModal: (options: any) => void
   hideModal: () => void
 }
 
-// 用户信息
-const userInfo = computed(() => userStore.user || {
-  username: '',
-  nickname: '',
-  last_login: 0,
-  role: 'USER',
-  gender: 0,
-  reg_time: 0,
-  avatar: false,
-  info: ''
-})
+const router = useRouter()
+const { t } = useI18n()
+const userStore = useUserStore()
+const modal = inject('modal') as ModalApi
 
-// 用户头像
-const userAvatar = computed(() => {
-  if (userInfo.value.avatar) {
-    return apiClient.getBaseUrl() + `/api/v1/users/${userInfo.value.username}/avatar`;
-  } else {
-    return defaultAvatar;
-  }
-})
+const loading = ref(false)
 
-// 解析额外信息
-const extraInfo = computed(() => {
-  try {
-    return JSON.parse(userInfo.value.info)
-  } catch {
-    return {
-      ip: '',
-      email: '',
-      phone: '',
-      birthday: '',
-      bio: ''
-    }
-  }
-})
+const user = computed(() => userStore.getUser)
 
-// 检查是否有额外信息
-const hasAdditionalInfo = computed(() => {
-  const info = extraInfo.value
-  return info.email || info.phone || info.birthday || info.bio
-})
+const userAvatar = computed(() => userStore.getAvatar || defaultAvatar)
 
-// 格式化时间
-const formatTime = (timestamp: number) => {
-  if (!timestamp) return t('profile.unknown')
-  return new Date(timestamp).toLocaleString()
+const displayName = computed(() => userStore.getDisplayName || t('profile.unknownUser'))
+
+const githubLogin = computed(() => userStore.getUsername || '')
+
+const userEmail = computed(() => user.value?.email || t('profile.notSet'))
+
+const userBio = computed(() => user.value?.bio || '')
+
+const isAdmin = computed(() => userStore.isAdmin)
+
+const roleLabel = computed(() => (userStore.isAdmin ? t('profile.admin') : t('profile.member')))
+
+const formatDate = (dateStr: string | null): string => {
+  if (!dateStr) return t('common.never')
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return t('common.unknown')
+  return d.toLocaleDateString()
 }
 
-// 获取性别文本
-const getGenderText = (gender: number) => {
-  const genderMap = {
-    1: t('profile.male'),
-    2: t('profile.female'),
-    3: t('profile.unknown')
-  }
-  return genderMap[gender as keyof typeof genderMap] || t('profile.unknown')
+const formatDateTime = (dateStr: string | null): string => {
+  if (!dateStr) return t('common.never')
+  const d = new Date(dateStr)
+  if (isNaN(d.getTime())) return t('common.unknown')
+  return d.toLocaleString()
 }
 
-// 编辑用户信息
+const memberSince = computed(() => formatDate(user.value?.created_at || null))
+
+const lastLogin = computed(() => formatDateTime(user.value?.last_login_at || null))
+
 const handleEdit = () => {
-  router.replace('/profile/edit')
+  router.push('/profile/edit')
 }
 
-// 获取用户信息
-const fetchUserInfo = async () => {
-  if (!userStore.isLoggedIn || !userStore.getUsername) return;
-
-  loading.value = true
-  try {
-    const response = await apiClient.getUserInfo()
-    if (response.status === 200 && response.data) {
-      userStore.setUser(response.data)
-    }
-  } catch (error) {
-    console.error(error)
-    modal?.showToast({
-      type: 'error',
-      message: t('profile.networkError'),
-    })
-  } finally {
-    loading.value = false
-  }
-}
-
-// 退出登录
-const handleLogout = async () => {
-  // 显示确认对话框
+const handleLogout = () => {
   modal?.showModal({
     type: 'confirm',
     title: t('confirmation.logoutTitle'),
     message: t('confirmation.logoutMessage'),
-    confirmText: t('confirmation.confirm'),
-    cancelText: t('confirmation.cancel'),
+    confirmText: t('profile.logout'),
+    cancelText: t('modal.cancel'),
     onConfirm: async () => {
       loading.value = true
-
       try {
-        const response = await apiClient.logout()
-
-        if (response.status === 200) {
-          // 显示成功消息
-          modal?.showToast({
-            type: 'success',
-            message: t('profile.logoutSuccess')
-          })
-
-          // 跳转到登录页面
-          router.replace('/login')
-        } else {
-          modal?.showToast({
-            type: 'error',
-            message: response.error?.message || t('profile.logoutFailed'),
-          })
-        }
+        await apiClient.logout()
+        modal?.showToast({ type: 'success', message: t('profile.logoutSuccess') })
+        router.push('/')
       } catch (error) {
         console.error(error)
-        modal?.showToast({
-          type: 'error',
-          message: t('profile.networkError'),
-        })
+        modal?.showToast({ type: 'error', message: t('profile.logoutFailed') })
       } finally {
         loading.value = false
       }
-    },
-    onCancel: () => {
-      // 用户取消，不执行任何操作
     }
   })
 }
 
-onMounted(() => {
-  // 如果没有登录，跳转到登录页面
+const handleChangePassword = () => {
+  modal?.showModal({
+    type: 'input',
+    title: t('profile.changePassword'),
+    message: t('profile.newPasswordPrompt'),
+    inputType: 'password',
+    placeholder: t('profile.newPasswordPlaceholder'),
+    confirmText: t('profile.setPassword'),
+    cancelText: t('modal.cancel'),
+    onConfirm: async (password: string) => {
+      const pwd = (password || '').trim()
+      if (pwd.length < 8) {
+        modal?.showToast({ type: 'error', message: t('profile.passwordMinLength') })
+        return
+      }
+      loading.value = true
+      try {
+        const res = await apiClient.setPassword(pwd)
+        if (res.status === 200) {
+          modal?.showToast({ type: 'success', message: t('profile.passwordUpdated') })
+        } else {
+          modal?.showToast({ type: 'error', message: res.error?.message || t('profile.passwordUpdateFailed') })
+        }
+      } catch (error) {
+        console.error(error)
+        modal?.showToast({ type: 'error', message: t('profile.networkError') })
+      } finally {
+        loading.value = false
+      }
+    }
+  })
+}
+
+const handleDeleteAccount = () => {
+  modal?.showModal({
+    type: 'confirm',
+    title: t('profile.deleteAccount'),
+    message: t('profile.deleteAccountConfirm'),
+    confirmText: t('profile.deleteAccount'),
+    cancelText: t('modal.cancel'),
+    onConfirm: async () => {
+      loading.value = true
+      try {
+        const res = await apiClient.deleteAccount()
+        if (res.status === 200) {
+          modal?.showToast({ type: 'success', message: t('profile.accountDeleted') })
+          router.push('/')
+        } else {
+          modal?.showToast({ type: 'error', message: res.error?.message || t('profile.accountDeleteFailed') })
+        }
+      } catch (error) {
+        console.error(error)
+        modal?.showToast({ type: 'error', message: t('profile.networkError') })
+      } finally {
+        loading.value = false
+      }
+    }
+  })
+}
+
+onMounted(async () => {
   if (!userStore.isLoggedIn) {
     router.replace('/login')
     return
   }
-
-  apiClient.checkAuth().then((isAuthenticated) => {
-    if (!isAuthenticated) {
-      modal?.showToast({
-        type: 'error',
-        message: t('profile.sessionExpired')
-      });
+  try {
+    const ok = await apiClient.checkAuth()
+    if (!ok) {
+      modal?.showToast({ type: 'error', message: t('profile.sessionExpired') })
       router.replace('/login')
     }
-  })
-
-  // 获取最新的用户信息
-  fetchUserInfo()
+  } catch (error) {
+    console.error(error)
+    router.replace('/login')
+  }
 })
 </script>
 
@@ -260,7 +265,12 @@ onMounted(() => {
 }
 
 .profile-card {
-  border-radius: 1.5rem;
+  background: var(--gradient-card);
+  border: var(--border-light);
+  border-radius: 1rem;
+  padding: 2.5rem;
+  box-shadow: var(--shadow-md);
+  backdrop-filter: blur(20px);
   transition: all 0.3s ease;
 }
 
@@ -268,11 +278,11 @@ onMounted(() => {
   text-align: center;
   margin-bottom: 2.5rem;
   padding-bottom: 2rem;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: var(--border-light);
 }
 
 .avatar-container {
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 .avatar {
@@ -281,36 +291,55 @@ onMounted(() => {
   border-radius: 50%;
   border: 4px solid var(--theme-color);
   object-fit: cover;
-  box-shadow: var(--shadow-lg);
-  transition: all 0.3s ease;
+  box-shadow: var(--shadow-md);
+  transition: transform 0.3s ease;
 }
 
 .avatar:hover {
   transform: scale(1.05);
-  box-shadow: 0 10px 30px var(--theme-hover);
 }
 
-.nickname {
+.display-name {
   font-size: 2.25rem;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.25rem;
   font-weight: 700;
   letter-spacing: -0.5px;
 }
 
 .username {
-  font-size: 1.2rem;
-  margin: 0;
-  font-weight: 500;
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: var(--border-light);
+}
+
+.role-badge--admin {
+  background: var(--theme-color);
+  color: var(--text-primary);
+  border: none;
 }
 
 .info-section {
-  margin-bottom: 2.5rem;
+  margin-bottom: 2rem;
 }
 
 .section-title {
-  font-size: 1.5rem;
-  margin-bottom: 1.5rem;
+  font-size: 1.25rem;
+  margin-bottom: 1.25rem;
   font-weight: 600;
+  color: var(--text-primary);
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -319,76 +348,149 @@ onMounted(() => {
 .section-title::before {
   content: '';
   width: 4px;
-  height: 1.5rem;
+  height: 1.25rem;
   background: var(--theme-color);
   border-radius: 2px;
 }
 
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 1.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
 }
 
 .info-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.25rem;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border: var(--border-light);
   border-radius: 0.75rem;
   transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
 }
 
 .info-item:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
-  border-color: var(--theme-color);
 }
 
 .info-label {
-  font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.8rem;
+  color: var(--text-tertiary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.info-label :deep(.lucide) {
+  color: var(--theme-color);
 }
 
 .info-value {
   font-weight: 500;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.bio-text {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  padding: 1rem 1.25rem;
+  background: var(--bg-secondary);
+  border: var(--border-light);
+  border-radius: 0.75rem;
 }
 
 .action-section {
-  text-align: center;
-  padding-top: 2rem;
-  border-top: 1px solid var(--border-color);
   display: flex;
   justify-content: center;
   gap: 1rem;
   flex-wrap: wrap;
+  margin-bottom: 1.5rem;
 }
 
-.back-btn {
-  padding: 1rem 2.5rem;
-  font-size: 1.1rem;
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.75rem;
+  border-radius: 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.3s ease;
 }
 
-.edit-btn {
-  background: linear-gradient(135deg, var(--theme-color) 0%, var(--theme-hover) 100%);
-  padding: 1rem 2.5rem;
-  font-size: 1.1rem;
+.btn-primary {
+  background: var(--theme-color);
+  color: var(--text-primary);
 }
 
-.edit-btn:hover {
-  box-shadow: 0 10px 25px var(--theme-hover);
+.btn-primary:hover {
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.05);
 }
 
-.logout-btn {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  padding: 1rem 2.5rem;
-  font-size: 1.1rem;
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: var(--border-light);
 }
 
-.logout-btn:hover {
-  box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+.btn-secondary:hover {
+  background: var(--bg-tertiary);
+  filter: brightness(1.1);
+  box-shadow: var(--shadow-md);
+}
+
+.danger-zone {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 1rem;
+  background: rgba(239, 68, 68, 0.05);
+}
+
+.danger-title::before {
+  background: var(--error-color);
+}
+
+.danger-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.danger-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.danger-label {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.danger-desc {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+}
+
+.btn-danger {
+  background: var(--error-color);
+  color: var(--text-primary);
+}
+
+.btn-danger:hover {
+  box-shadow: var(--shadow-md);
+  filter: brightness(1.05);
 }
 
 @media (max-width: 768px) {
@@ -396,51 +498,49 @@ onMounted(() => {
     padding: 1rem 0;
   }
 
-  .avatar {
-    width: 120px;
-    height: 120px;
+  .profile-card {
+    padding: 1.75rem;
   }
 
-  .nickname {
-    font-size: 2rem;
+  .avatar {
+    width: 110px;
+    height: 110px;
+  }
+
+  .display-name {
+    font-size: 1.85rem;
   }
 
   .info-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .info-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    text-align: left;
   }
 }
 
 @media (max-width: 480px) {
+  .profile-card {
+    padding: 1.25rem;
+  }
+
   .avatar {
-    width: 100px;
-    height: 100px;
+    width: 90px;
+    height: 90px;
   }
 
-  .nickname {
-    font-size: 1.75rem;
-  }
-
-  .section-title {
-    font-size: 1.25rem;
+  .display-name {
+    font-size: 1.5rem;
   }
 
   .action-section {
     flex-direction: column;
-    gap: 0.75rem;
   }
 
-  .back-btn,
-  .edit-btn,
-  .logout-btn {
+  .btn {
     width: 100%;
+  }
+
+  .danger-action {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 </style>

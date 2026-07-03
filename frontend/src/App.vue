@@ -42,5 +42,4 @@ onMounted(() => {
 
 <style>
 @import '@styles/base.css';
-@import '@fortawesome/fontawesome-free/css/all.css';
 </style>

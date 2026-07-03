@@ -1,57 +1,27 @@
 <template>
-  <div class="register-page">
-    <div class="register-content">
-      <div class="register-container">
-        <!-- 注册卡片 -->
-        <div class="register-card">
-          <div class="register-card-header">
-            <h1 class="register-title">{{ $t('register.title') }}</h1>
-            <p class="register-subtitle">{{ $t('register.subtitle') }}</p>
+  <div class="auth-page">
+    <div class="auth-content">
+      <div class="auth-container">
+        <div class="auth-card">
+          <div class="auth-card-header">
+            <div class="auth-logo">
+              <img :src="logo" :alt="$t('header.appName')" class="logo-image" />
+            </div>
+            <h1 class="auth-title">{{ $t('register.createAccount') }}</h1>
+            <p class="auth-subtitle">{{ $t('register.githubSubtitle') }}</p>
           </div>
 
-          <form class="register-form" @submit.prevent="handleRegister">
-            <!-- 用户ID输入 -->
-            <div class="form-group">
-              <label for="username" class="form-label">
-                <i class="form-icon fas fa-user"></i>
-                {{ $t('register.username') }}
-              </label>
-              <input id="username" v-model="form.username" type="text" class="form-input"
-                :placeholder="$t('register.usernamePlaceholder')" autocomplete="username" />
-            </div>
-
-            <!-- 密码输入 -->
-            <div class="form-group">
-              <label for="password" class="form-label">
-                <i class="form-icon fas fa-lock"></i>
-                {{ $t('register.password') }}
-              </label>
-              <input id="password" v-model="form.password" type="password" class="form-input"
-                :placeholder="$t('register.passwordPlaceholder')" autocomplete="new-password" />
-            </div>
-
-            <!-- 确认密码输入 -->
-            <div class="form-group">
-              <label for="confirmPassword" class="form-label">
-                <i class="form-icon fas fa-lock"></i>
-                {{ $t('register.confirmPassword') }}
-              </label>
-              <input id="confirmPassword" v-model="form.confirmPassword" type="password" class="form-input"
-                :placeholder="$t('register.confirmPasswordPlaceholder')" autocomplete="new-password" />
-            </div>
-
-            <!-- 注册按钮 -->
-            <button type="submit" class="register-btn" :disabled="isLoading">
-              <i class="btn-icon fas fa-user-plus"></i>
-              {{ isLoading ? $t('register.registerLoading') : $t('register.registerButton') }}
+          <div class="auth-form">
+            <button type="button" class="github-btn" @click="handleGithubLogin">
+              <Github />
+              {{ $t('register.githubSignup') }}
             </button>
 
-            <!-- 登录链接 -->
-            <div class="login-section">
-              <p class="login-text">{{ $t('register.haveAccount') }}</p>
-              <a @click="navigateToLogin" class="login-link" style="cursor: pointer;">{{ $t('register.loginLink') }}</a>
+            <div class="switch-section">
+              <span class="switch-text">{{ $t('register.haveAccount') }}</span>
+              <a class="switch-link" @click="router.push('/login')">{{ $t('register.signIn') }}</a>
             </div>
-          </form>
+          </div>
         </div>
       </div>
     </div>
@@ -59,124 +29,45 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject } from 'vue'
+import { inject, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import apiClient from '@/api/index'
+import { Github } from 'lucide-vue-next'
+import apiClient from '@/api'
+import { useUserStore } from '@/stores/user'
+import logo from '@/assets/icon.png'
 
 const router = useRouter()
-const { t } = useI18n()
+const userStore = useUserStore()
 
-const modal = inject('modal') as {
-  showToast: (options: any) => void
-  hideToast: () => void
-  showModal: (options: any) => void
-  hideModal: () => void
+const header = inject('header') as {
+  show: () => void
+  hide: () => void
 }
 
-const form = ref({
-  username: '',
-  password: '',
-  confirmPassword: ''
+const handleGithubLogin = () => {
+  window.location.href = apiClient.getGithubLoginUrl()
+}
+
+onMounted(() => {
+  if (userStore.isLoggedIn) {
+    router.push('/')
+    return
+  }
+  header?.hide()
 })
 
-const isLoading = ref(false)
-
-const showError = (message: string, type: string = 'error') => {
-  modal?.showToast({
-    type,
-    message
-  })
-}
-
-const handleRegister = async () => {
-  if (!form.value.username.trim()) {
-    showError(t('register.validation.usernameRequired'), 'warning')
-    return
-  }
-
-  if (!form.value.password.trim()) {
-    showError(t('register.validation.passwordRequired'), 'warning')
-    return
-  }
-
-  if (!form.value.confirmPassword.trim()) {
-    showError(t('register.validation.confirmPasswordRequired'), 'warning')
-    return
-  }
-
-  if (form.value.password !== form.value.confirmPassword) {
-    showError(t('register.validation.passwordMismatch'), 'error')
-    return
-  }
-
-  if (!/^[a-zA-Z][a-zA-Z0-9_-]{2,19}$/.test(form.value.username.trim())) {
-    showError(t('register.validation.usernameFormat'), 'warning')
-    return
-  }
-
-  if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,32}$/.test(form.value.password.trim())) {
-    showError(t('register.validation.passwordFormat'), 'warning')
-    return
-  }
-
-  isLoading.value = true
-
-  try {
-    const response = await apiClient.register({
-      username: form.value.username.trim(),
-      password: form.value.password.trim()
-    })
-
-    if (response.status === 201) {
-      modal?.showToast({
-        type: 'success',
-        message: t('register.successMessage'),
-      })
-
-      setTimeout(() => {
-        router.replace('/login')
-      }, 1000)
-    } else {
-      // 根据状态码显示对应的错误信息
-      let errorMessage = t('register.validation.registerFailed')
-
-      switch (response.status) {
-        case 400:
-          errorMessage = t('register.validation.missingFields')
-          break
-        case 409:
-          errorMessage = t('register.validation.userExists')
-          break
-        case 500:
-          errorMessage = t('register.validation.serverError')
-          break
-        default:
-          errorMessage = response.error?.message || t('register.validation.registerFailed')
-      }
-
-      showError(errorMessage)
-    }
-  } catch (error) {
-    console.error(error)
-    showError(t('register.validation.networkError'))
-  } finally {
-    isLoading.value = false
-  }
-}
-
-const navigateToLogin = () => {
-  router.replace('/login')
-}
+onUnmounted(() => {
+  header?.show()
+})
 </script>
 
 <style scoped>
-.register-page {
+.auth-page {
   display: flex;
   flex: 1;
 }
 
-.register-content {
+.auth-content {
   flex: 1;
   display: flex;
   align-items: center;
@@ -185,12 +76,12 @@ const navigateToLogin = () => {
   width: 100dvw;
 }
 
-.register-container {
+.auth-container {
   width: 100%;
   max-width: 440px;
 }
 
-.register-card {
+.auth-card {
   background: var(--gradient-card);
   border: var(--border-light);
   border-radius: 1rem;
@@ -200,21 +91,41 @@ const navigateToLogin = () => {
   transition: all 0.3s ease;
 }
 
-.register-card:hover {
+.auth-card:hover {
   transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-md);
   border-color: rgba(255, 255, 255, 0.2);
 }
 
-.register-card-header {
+.auth-card-header {
   text-align: center;
   margin-bottom: 2.5rem;
 }
 
-.register-title {
+.auth-logo {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--bg-tertiary);
+  border: var(--border-light);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+}
+
+.logo-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.auth-title {
   font-size: 2.25rem;
   color: var(--text-primary);
-  margin-bottom: 0.75rem;
+  margin-bottom: 0.5rem;
   font-weight: 600;
   background: linear-gradient(135deg, var(--text-primary) 0%, var(--theme-color) 100%);
   -webkit-background-clip: text;
@@ -222,71 +133,89 @@ const navigateToLogin = () => {
   background-clip: text;
 }
 
-.register-subtitle {
-  font-size: 1.1rem;
+.auth-subtitle {
+  font-size: 1.05rem;
   color: var(--text-secondary);
   line-height: 1.6;
 }
 
-.register-form {
+.auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: 1.5rem;
 }
 
-.form-icon {
-  color: var(--theme-color);
-  font-size: 0.9rem;
-  width: 16px;
+.github-btn {
+  width: 100%;
+  padding: 1rem 1.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: var(--border-light);
+  border-radius: 0.75rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s ease;
 }
 
-.btn-icon {
-  font-size: 0.9rem;
+.github-btn:hover {
+  background: var(--bg-secondary);
+  box-shadow: var(--shadow-md);
 }
 
-.login-section {
+.switch-section {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding-top: 2rem;
+  padding-top: 1.5rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  margin-top: 2rem;
 }
 
-.login-text {
+.switch-text {
   color: var(--text-secondary);
   font-size: 0.95rem;
-  margin: 0;
 }
 
-/* 响应式设计 */
+.switch-link {
+  color: var(--theme-color);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.switch-link::after {
+  bottom: -1px;
+}
+
 @media (max-width: 768px) {
-  .register-content {
+  .auth-content {
     padding: 1.5rem 1rem;
-    min-height: calc(100vh - 70px);
   }
 
-  .register-card {
+  .auth-card {
     padding: 2rem;
-    margin: 0;
   }
 
-  .register-title {
+  .auth-title {
     font-size: 2rem;
   }
 }
 
 @media (max-width: 480px) {
-  .register-card {
+  .auth-card {
     padding: 1.5rem;
   }
 
-  .register-title {
+  .auth-title {
     font-size: 1.75rem;
   }
 
-  .register-subtitle {
+  .auth-subtitle {
     font-size: 1rem;
   }
 }
