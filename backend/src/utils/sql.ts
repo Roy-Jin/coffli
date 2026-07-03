@@ -5,99 +5,89 @@ import bcrypt from "bcryptjs";
 // SQL Schemas
 // ==========================================
 
-export const CREATE_TABLE_SQL = `
-PRAGMA foreign_keys = ON;
+export const CREATE_TABLE_SQL: string[] = [
+    `PRAGMA foreign_keys = ON`,
+    `CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        github_id TEXT NOT NULL UNIQUE,
+        github_login TEXT NOT NULL UNIQUE,
+        email TEXT,
+        display_name TEXT,
+        avatar_url TEXT,
+        bio TEXT,
+        password_hash TEXT,
+        role TEXT DEFAULT 'reader',
+        created_at TEXT DEFAULT (datetime('now')),
+        last_login_at TEXT
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_users_github_login ON users(github_login)`,
+    `CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id INTEGER NOT NULL,
+        expires_at TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now')),
+        ip_address TEXT,
+        user_agent TEXT,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id)`,
+    `CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at)`,
+    `CREATE TABLE IF NOT EXISTS posts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        author_id INTEGER NOT NULL,
+        slug TEXT NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        content TEXT NOT NULL,
+        summary TEXT,
+        cover_image_url TEXT,
+        status TEXT DEFAULT 'draft',
+        is_pinned BOOLEAN DEFAULT 0,
+        view_count INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        published_at TEXT,
+        FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status)`,
+    `CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug)`,
+    `CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at DESC)`,
+    `CREATE TABLE IF NOT EXISTS tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        slug TEXT NOT NULL UNIQUE
+    )`,
+    `CREATE TABLE IF NOT EXISTS post_tags (
+        post_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        PRIMARY KEY (post_id, tag_id),
+        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
+    )`,
+    `CREATE TABLE IF NOT EXISTS comments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        post_id INTEGER NOT NULL,
+        user_id INTEGER NOT NULL,
+        parent_id INTEGER DEFAULT NULL,
+        content TEXT NOT NULL,
+        is_approved BOOLEAN DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
+        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id)`,
+];
 
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    github_id TEXT NOT NULL UNIQUE,
-    github_login TEXT NOT NULL UNIQUE,
-    email TEXT,
-    display_name TEXT,
-    avatar_url TEXT,
-    bio TEXT,
-    password_hash TEXT,
-    role TEXT DEFAULT 'reader',
-    created_at TEXT DEFAULT (datetime('now')),
-    last_login_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
-CREATE INDEX IF NOT EXISTS idx_users_github_login ON users(github_login);
-
-CREATE TABLE IF NOT EXISTS sessions (
-    id TEXT PRIMARY KEY,
-    user_id INTEGER NOT NULL,
-    expires_at TEXT NOT NULL,
-    created_at TEXT DEFAULT (datetime('now')),
-    ip_address TEXT,
-    user_agent TEXT,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
-
-CREATE TABLE IF NOT EXISTS posts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    author_id INTEGER NOT NULL,
-    slug TEXT NOT NULL UNIQUE,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    summary TEXT,
-    cover_image_url TEXT,
-    status TEXT DEFAULT 'draft',
-    is_pinned BOOLEAN DEFAULT 0,
-    view_count INTEGER DEFAULT 0,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    published_at TEXT,
-    FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
-CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug);
-CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at DESC);
-
-CREATE TABLE IF NOT EXISTS tags (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    slug TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS post_tags (
-    post_id INTEGER NOT NULL,
-    tag_id INTEGER NOT NULL,
-    PRIMARY KEY (post_id, tag_id),
-    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS comments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    post_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    parent_id INTEGER DEFAULT NULL,
-    content TEXT NOT NULL,
-    is_approved BOOLEAN DEFAULT 1,
-    created_at TEXT DEFAULT (datetime('now')),
-    updated_at TEXT DEFAULT (datetime('now')),
-    FOREIGN KEY (post_id) REFERENCES posts(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
-);
-
-CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
-`;
-
-export const DROP_TABLE_SQL = `
-DROP TABLE IF EXISTS post_tags;
-DROP TABLE IF EXISTS comments;
-DROP TABLE IF EXISTS posts;
-DROP TABLE IF EXISTS tags;
-DROP TABLE IF EXISTS sessions;
-DROP TABLE IF EXISTS users;
-`;
+export const DROP_TABLE_SQL: string[] = [
+    `DROP TABLE IF EXISTS post_tags`,
+    `DROP TABLE IF EXISTS comments`,
+    `DROP TABLE IF EXISTS posts`,
+    `DROP TABLE IF EXISTS tags`,
+    `DROP TABLE IF EXISTS sessions`,
+    `DROP TABLE IF EXISTS users`,
+];
 
 // ==========================================
 // Password Utilities
@@ -118,16 +108,12 @@ export async function verifyPassword(
 // Base Operations
 // ==========================================
 
-export async function execSQL(D1: D1Database, sql: string) {
-    return await D1.exec(sql);
-}
-
 export async function initTables(D1: D1Database) {
-    return await execSQL(D1, CREATE_TABLE_SQL);
+    return await D1.batch(CREATE_TABLE_SQL.map((sql) => D1.prepare(sql)));
 }
 
 export async function dropTables(D1: D1Database) {
-    return await execSQL(D1, DROP_TABLE_SQL);
+    return await D1.batch(DROP_TABLE_SQL.map((sql) => D1.prepare(sql)));
 }
 
 // ==========================================
