@@ -7,10 +7,10 @@ import {
     upsertUserFromGithub,
 } from "@/utils/sql";
 import {
-    createUserSession,
     clearUserSession,
-    requireAuth,
+    createUserSession,
     getCurrentUser,
+    requireAuth,
 } from "@/utils/session";
 
 const auth = new Hono<{ Bindings: CloudflareBindings }>();
@@ -33,15 +33,14 @@ auth.get(
                 503,
             );
         }
-
-        const middleware = githubAuth({
+        const oauth = githubAuth({
             client_id: clientId,
             client_secret: clientSecret,
             scope: ["read:user", "user:email"],
             oauthApp: true,
         });
 
-        await middleware(c, next);
+        return await oauth(c, next);
     },
     async (c) => {
         const githubUser = c.get("user-github");
@@ -73,8 +72,9 @@ auth.get(
                         primary: boolean;
                         verified: boolean;
                     }>;
-                    email =
-                        emails.find((e) => e.primary && e.verified)?.email ||
+                    email = emails.find((e) =>
+                        e.primary && e.verified
+                    )?.email ||
                         emails.find((e) => e.verified)?.email;
                 }
             } catch {
@@ -91,10 +91,6 @@ auth.get(
         });
 
         await createUserSession(c, user.id);
-
-        const siteUrl =
-            (await c.env.KV.get("SITE_URL")) || "https://coffli.pages.dev";
-        return c.redirect(`${siteUrl}/`, 302);
     },
 );
 
