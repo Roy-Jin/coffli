@@ -17,12 +17,18 @@ const auth = new Hono<{ Bindings: CloudflareBindings }>();
 
 const GITHUB_EMAILS_URL = "https://api.github.com/user/emails";
 
-// GET /api/v1/auth/github → GitHub OAuth (initiate + callback in one route)
-auth.get(
+auth.use(
     "/github",
     async (c, next) => {
         const clientId = await c.env.KV.get("GITHUB_CLIENT_ID");
         const clientSecret = await c.env.KV.get("GITHUB_CLIENT_SECRET");
+        const siteUrl = await c.env.KV.get("SITE_URL");
+        const redirect_uri =
+            `${siteUrl}${"/api/v1/auth/github/callback"}?redirect=${
+                encodeURIComponent(
+                    c.req.path,
+                )
+            }`;
 
         if (!clientId || !clientSecret) {
             return c.json(
@@ -33,15 +39,20 @@ auth.get(
                 503,
             );
         }
-        const oauth = githubAuth({
+
+        githubAuth({
+            redirect_uri: redirect_uri || "",
             client_id: clientId,
             client_secret: clientSecret,
             scope: ["read:user", "user:email"],
             oauthApp: true,
         });
-
-        return await oauth(c, next);
     },
+);
+
+// GET /api/v1/auth/github/callback → GitHub OAuth callback
+auth.get(
+    "/github/callback",
     async (c) => {
         const githubUser = c.get("user-github");
         const token = c.get("token");
@@ -91,6 +102,7 @@ auth.get(
         });
 
         await createUserSession(c, user.id);
+        return c.redirect("/");
     },
 );
 
