@@ -6,40 +6,25 @@ import bcrypt from "bcryptjs";
 // ==========================================
 
 export const CREATE_TABLE_SQL = `
--- 1. 开启外键约束
 PRAGMA foreign_keys = ON;
 
--- ==========================================
--- Table: users (用户表)
--- ==========================================
 CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    -- Github 信息
     github_id TEXT NOT NULL UNIQUE,
-    github_login TEXT NOT NULL UNIQUE, -- Github 用户名，作为密码登录的账号名，必须唯一
-    
-    -- 个人信息
+    github_login TEXT NOT NULL UNIQUE,
     email TEXT,
     display_name TEXT,
     avatar_url TEXT,
     bio TEXT,
-    
-    -- 密码 (用户设置后才有值，默认为 NULL)
     password_hash TEXT,
-    
-    -- 系统字段
     role TEXT DEFAULT 'reader',
     created_at TEXT DEFAULT (datetime('now')),
     last_login_at TEXT
 );
 
--- 索引
 CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
-CREATE INDEX IF NOT EXISTS idx_users_github_login ON users(github_login); -- 加速用户名密码登录查询
+CREATE INDEX IF NOT EXISTS idx_users_github_login ON users(github_login);
 
--- ==========================================
--- Table: sessions (会话表)
--- ==========================================
 CREATE TABLE IF NOT EXISTS sessions (
     id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -53,9 +38,6 @@ CREATE TABLE IF NOT EXISTS sessions (
 CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
 
--- ==========================================
--- Table: posts (文章表)
--- ==========================================
 CREATE TABLE IF NOT EXISTS posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     author_id INTEGER NOT NULL,
@@ -77,18 +59,12 @@ CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status);
 CREATE INDEX IF NOT EXISTS idx_posts_slug ON posts(slug);
 CREATE INDEX IF NOT EXISTS idx_posts_published_at ON posts(published_at DESC);
 
--- ==========================================
--- Table: tags (标签表)
--- ==========================================
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     slug TEXT NOT NULL UNIQUE
 );
 
--- ==========================================
--- Table: post_tags (文章-标签关联表)
--- ==========================================
 CREATE TABLE IF NOT EXISTS post_tags (
     post_id INTEGER NOT NULL,
     tag_id INTEGER NOT NULL,
@@ -97,9 +73,6 @@ CREATE TABLE IF NOT EXISTS post_tags (
     FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
--- ==========================================
--- Table: comments (评论表)
--- ==========================================
 CREATE TABLE IF NOT EXISTS comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id INTEGER NOT NULL,
