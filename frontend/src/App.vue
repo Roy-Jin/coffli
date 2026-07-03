@@ -24,11 +24,9 @@ provide('header', {
 })
 
 onMounted(async () => {
-  if (userStore.isLoggedIn) {
-    const valid = await apiClient.checkAuth()
-    if (!valid) {
-      userStore.clearAuth()
-    }
+  const valid = await apiClient.checkAuth()
+  if (!valid) {
+    userStore.clearAuth()
   }
 
   router.afterEach(() => {
