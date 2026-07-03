@@ -22,13 +22,6 @@ auth.use(
     async (c, next) => {
         const clientId = await c.env.KV.get("GITHUB_CLIENT_ID");
         const clientSecret = await c.env.KV.get("GITHUB_CLIENT_SECRET");
-        const siteUrl = await c.env.KV.get("SITE_URL");
-        const redirect_uri =
-            `${siteUrl}${"/api/v1/auth/github/callback"}?redirect=${
-                encodeURIComponent(
-                    c.req.path,
-                )
-            }`;
 
         if (!clientId || !clientSecret) {
             return c.json(
@@ -40,19 +33,20 @@ auth.use(
             );
         }
 
-        githubAuth({
-            redirect_uri: redirect_uri || "",
+        const oauth = await githubAuth({
             client_id: clientId,
             client_secret: clientSecret,
             scope: ["read:user", "user:email"],
             oauthApp: true,
         });
+
+        return oauth(c, next);
     },
 );
 
-// GET /api/v1/auth/github/callback → GitHub OAuth callback
+// GET /api/v1/auth/github → GitHub OAuth initiate + callback (single route)
 auth.get(
-    "/github/callback",
+    "/github",
     async (c) => {
         const githubUser = c.get("user-github");
         const token = c.get("token");
