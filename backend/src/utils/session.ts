@@ -36,7 +36,7 @@ export async function createUserSession(
     const sessionId = crypto.randomUUID();
     const expiresAt = new Date(
         Date.now() + SESSION_TTL_DAYS * 24 * 60 * 60 * 1000,
-    ).toISOString();
+    ).toISOString().slice(0, 19).replace("T", " ");
 
     await createSession(c.env.D1, {
         id: sessionId,

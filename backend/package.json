@@ -7,6 +7,7 @@
     "cf-typegen": "wrangler types --env-interface CloudflareBindings"
   },
   "dependencies": {
+    "@hono/oauth-providers": "^0.8.5",
     "bcryptjs": "^3.0.3",
     "hono": "^4.12.23",
     "http-status-codes": "^2.3.0"

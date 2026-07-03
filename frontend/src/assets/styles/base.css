@@ -11,7 +11,7 @@
     --warning-color: #f59e0b;
     --error-color: #ef4444;
 
-    --theme-color: var(--accent-color);
+    --theme-color: #45969c;
     --theme-hover: color-mix(in srgb, var(--theme-color), #000 30%);
     --theme-focus: color-mix(in srgb, var(--theme-color), transparent 60%);
 

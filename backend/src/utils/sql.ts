@@ -153,10 +153,9 @@ export async function upsertUserFromGithub(
     VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
     ON CONFLICT(github_id) DO UPDATE SET
       avatar_url = excluded.avatar_url,
-      display_name = excluded.github_login,
+      github_login = excluded.github_login,
       email = COALESCE(excluded.email, users.email),
       last_login_at = datetime('now')
-      -- 注意：这里故意没有更新 password_hash
     RETURNING *
   `;
     const result = await D1.prepare(query)
@@ -182,9 +181,9 @@ export async function getUserByGithubLogin(
     D1: D1Database,
     githubLogin: string,
 ): Promise<User | null> {
-    // Github 用户名通常不区分大小写，建议存小写或统一查询
-    // 这里假设存储的是原样，查询时也原样，或者你可以统一转小写
-    return await D1.prepare("SELECT * FROM users WHERE github_login = ?")
+    return await D1.prepare(
+        "SELECT * FROM users WHERE github_login = ? COLLATE NOCASE",
+    )
         .bind(githubLogin)
         .first<User>() || null;
 }
