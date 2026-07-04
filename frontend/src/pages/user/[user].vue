@@ -62,7 +62,7 @@ async function loadPosts() {
   try {
     const res = await getPosts({
       author: user.value.id,
-      status: isOwnProfile.value ? undefined : "published",
+      status: isOwnProfile.value ? "all" : "published",
       limit: 100,
     });
     posts.value = res.posts;
@@ -189,9 +189,17 @@ watch(username, () => loadUser(), { immediate: true });
             <EmptyState
               v-else-if="posts.length === 0"
               title="还没有文章"
-              description="此用户暂未发布任何文章"
+              :description="isOwnProfile ? '你还没有任何文章，去写第一篇吧' : '此用户暂未发布任何文章'"
               icon="FileText"
-            />
+            >
+              <RouterLink
+                v-if="isOwnProfile"
+                to="/new"
+                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-cute-sm bg-primary hover:bg-primary-hover text-white text-sm transition-colors"
+              >
+                开始写作
+              </RouterLink>
+            </EmptyState>
             <div v-else>
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <PostCard

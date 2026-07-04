@@ -110,3 +110,19 @@ export const requireAuth = createMiddleware<Env>(async (c, next) => {
 export function getCurrentUser(c: Context<Env>): User {
     return c.get("user");
 }
+
+export async function getCurrentUserOptional(
+    c: Context<Env>,
+): Promise<User | null> {
+    const sessionId = await getSessionId(c);
+    if (!sessionId) return null;
+    const session = await getSession(c.env.D1, sessionId);
+    if (!session) return null;
+    return await getUserById(c.env.D1, session.user_id);
+}
+
+export const optionalAuth = createMiddleware<Env>(async (c, next) => {
+    const user = await getCurrentUserOptional(c);
+    if (user) c.set("user", user);
+    await next();
+});

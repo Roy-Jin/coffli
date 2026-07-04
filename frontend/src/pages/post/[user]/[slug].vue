@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { Eye, Clock, Edit, Trash2, ArrowLeft } from "@lucide/vue";
 import { getPost, deletePost } from "@/api/posts";
@@ -25,6 +25,7 @@ const router = useRouter();
 const userStore = useUserStore();
 const toast = useToast();
 
+const isChildRoute = computed(() => route.name === "/post/[user]/[slug]/edit");
 const slug = computed(() => route.params.slug as string);
 const post = ref<Post | null>(null);
 const loading = ref(true);
@@ -84,11 +85,20 @@ async function onDelete() {
   }
 }
 
-onMounted(loadPost);
+onMounted(() => {
+  if (!isChildRoute.value) loadPost();
+});
+
+watch(isChildRoute, (isChild) => {
+  if (!isChild && !post.value && !notFound.value) {
+    loadPost();
+  }
+});
 </script>
 
 <template>
-  <div class="min-h-screen flex flex-col">
+  <RouterView v-if="isChildRoute" />
+  <div v-else class="min-h-screen flex flex-col">
     <AppHeader />
 
     <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-8">

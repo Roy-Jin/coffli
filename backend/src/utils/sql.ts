@@ -342,7 +342,7 @@ function mapAuthor(row: Record<string, unknown>): Author {
 }
 
 export async function getPosts(D1: D1Database, options: {
-    status?: "draft" | "published" | "archived";
+    status?: "draft" | "published" | "archived" | "all";
     limit?: number;
     offset?: number;
     author_id?: number;
@@ -353,12 +353,17 @@ export async function getPosts(D1: D1Database, options: {
         offset = 0,
         author_id,
     } = options;
-    const where: string[] = ["p.status = ?"];
-    const binds: unknown[] = [status];
+    const where: string[] = [];
+    const binds: unknown[] = [];
+    if (status !== "all") {
+        where.push("p.status = ?");
+        binds.push(status);
+    }
     if (author_id !== undefined) {
         where.push("p.author_id = ?");
         binds.push(author_id);
     }
+    const whereClause = where.length ? `WHERE ${where.join(" AND ")}` : "";
     const { results } = await D1.prepare(`
     SELECT
       p.*,
@@ -368,7 +373,7 @@ export async function getPosts(D1: D1Database, options: {
       u.avatar_url AS author_avatar_url
     FROM posts p
     JOIN users u ON p.author_id = u.id
-    WHERE ${where.join(" AND ")}
+    ${whereClause}
     ORDER BY p.is_pinned DESC, p.published_at DESC
     LIMIT ? OFFSET ?
   `).bind(...binds, limit, offset).all<Record<string, unknown>>();

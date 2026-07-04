@@ -1,8 +1,10 @@
 import { apiClient } from "./client";
 import type { Post, Tag, PostStatus } from "@/types/api";
 
+export type GetPostsStatus = PostStatus | "all";
+
 export interface GetPostsParams {
-  status?: PostStatus;
+  status?: GetPostsStatus;
   limit?: number;
   offset?: number;
   author?: number;

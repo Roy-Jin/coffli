@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { createError, createSuccess, ReasonPhrases } from "@/utils/respond";
-import { requireAuth, getCurrentUser } from "@/utils/session";
+import { requireAuth, getCurrentUser, optionalAuth } from "@/utils/session";
 import {
     attachTagsToPost,
     createComment,
@@ -19,11 +19,11 @@ import {
 const posts = new Hono<{ Bindings: CloudflareBindings }>();
 
 // GET /api/v1/posts → List posts
-posts.get("/", async (c) => {
+posts.get("/", optionalAuth, async (c) => {
     const { status, limit, offset, author } = c.req.query();
 
     const options: Parameters<typeof getPosts>[1] = {};
-    if (status === "draft" || status === "published" || status === "archived") {
+    if (status === "draft" || status === "published" || status === "archived" || status === "all") {
         options.status = status;
     }
     if (limit) {
@@ -37,6 +37,26 @@ posts.get("/", async (c) => {
     if (author) {
         const authorId = parseInt(author, 10);
         if (!isNaN(authorId)) options.author_id = authorId;
+    }
+
+    // Non-published statuses are private: only the author or admins may list them.
+    if (options.status && options.status !== "published") {
+        const currentUser = c.get("user");
+        if (!currentUser) {
+            return c.json(
+                createError(ReasonPhrases.UNAUTHORIZED, "Authentication required"),
+                401,
+            );
+        }
+        if (options.author_id !== undefined && currentUser.id !== options.author_id && currentUser.role !== "admin") {
+            return c.json(
+                createError(ReasonPhrases.FORBIDDEN, "Cannot view other users' private posts"),
+                403,
+            );
+        }
+        if (options.author_id === undefined && currentUser.role !== "admin") {
+            options.author_id = currentUser.id;
+        }
     }
 
     const results = await getPosts(c.env.D1, options);
@@ -58,7 +78,7 @@ posts.get("/tags/all", async (c) => {
 });
 
 // GET /api/v1/posts/:slug → Get single post
-posts.get("/:slug", async (c) => {
+posts.get("/:slug", optionalAuth, async (c) => {
     const slug = c.req.param("slug");
     const post = await getPostBySlug(c.env.D1, slug);
 
@@ -71,7 +91,7 @@ posts.get("/:slug", async (c) => {
 
     // Only the author or admins can view draft/archived posts
     if (post.status !== "published") {
-        const currentUser = getCurrentUser(c);
+        const currentUser = c.get("user");
         if (!currentUser || (currentUser.id !== post.author_id && currentUser.role !== "admin")) {
             return c.json(
                 createError(ReasonPhrases.NOT_FOUND, "Post not found"),
