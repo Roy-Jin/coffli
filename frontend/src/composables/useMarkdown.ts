@@ -34,13 +34,34 @@ function highlightCode(str: string, lang: string): string {
   return "";
 }
 
+// Strip dangerous elements/attributes from rendered HTML to prevent XSS.
+// Allows safe inline HTML (styling, semantics) while removing scripts and event handlers.
+const DANGEROUS_TAGS = "script, iframe, object, embed, form, meta, base, link, style";
+function sanitizeHtml(html: string): string {
+  if (typeof window === "undefined") return html;
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll(DANGEROUS_TAGS).forEach((el) => el.remove());
+  doc.querySelectorAll("*").forEach((el) => {
+    Array.from(el.attributes).forEach((attr) => {
+      const name = attr.name.toLowerCase();
+      const value = attr.value.trim().toLowerCase();
+      if (name.startsWith("on")) {
+        el.removeAttribute(attr.name);
+      } else if ((name === "href" || name === "src" || name === "action" || name === "xlink:href") && value.startsWith("javascript:")) {
+        el.removeAttribute(attr.name);
+      }
+    });
+  });
+  return doc.body.innerHTML;
+}
+
 let mdInstance: MarkdownIt | null = null;
 
 function getMd(): MarkdownIt {
   if (mdInstance) return mdInstance;
 
   const md = new MarkdownIt({
-    html: false,
+    html: true,
     linkify: true,
     typographer: true,
     highlight: (str: string, lang: string) => highlightCode(str, lang),
@@ -83,7 +104,7 @@ function getMd(): MarkdownIt {
 }
 
 export function renderMarkdown(content: string): string {
-  return getMd().render(content);
+  return sanitizeHtml(getMd().render(content));
 }
 
 export interface Heading {
