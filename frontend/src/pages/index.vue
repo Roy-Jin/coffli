@@ -8,27 +8,23 @@ import PostCard from "@/components/post/PostCard.vue";
 import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import TagBadge from "@/components/common/TagBadge.vue";
-import { getPosts, getAllTags } from "@/api/posts";
+import { getPosts } from "@/api/posts";
 import { useUserStore } from "@/stores/user";
-import type { Post, Tag } from "@/types/api";
+import type { Post } from "@/types/api";
 
 const userStore = useUserStore();
 
 const posts = ref<Post[]>([]);
-const tags = ref<Tag[]>([]);
 const loading = ref(true);
 const error = ref<string | null>(null);
-const selectedTagSlug = ref<string | null>(null);
 
 const filteredPosts = computed(() => {
-  const list = [...posts.value].sort((a, b) => {
+  return [...posts.value].sort((a, b) => {
     if (a.is_pinned !== b.is_pinned) return b.is_pinned - a.is_pinned;
     const aTime = new Date(a.published_at ?? a.created_at).getTime();
     const bTime = new Date(b.published_at ?? b.created_at).getTime();
     return bTime - aTime;
   });
-  if (!selectedTagSlug.value) return list;
-  return list.filter((p) => p.tags.some((t) => t.slug === selectedTagSlug.value));
 });
 
 const featuredPost = computed(() => filteredPosts.value[0] ?? null);
@@ -47,24 +43,7 @@ async function loadPosts() {
   }
 }
 
-async function loadTags() {
-  try {
-    const res = await getAllTags();
-    tags.value = res.tags;
-  } catch {
-    // tags are non-critical
-  }
-}
-
-function toggleTag(tag: Tag) {
-  selectedTagSlug.value =
-    selectedTagSlug.value === tag.slug ? null : tag.slug;
-}
-
-onMounted(() => {
-  loadPosts();
-  loadTags();
-});
+onMounted(loadPosts);
 </script>
 
 <template>
@@ -123,41 +102,18 @@ onMounted(() => {
               <ArrowRight :size="16" />
             </a>
           </div>
-
-          <!-- Tags -->
-          <div v-if="tags.length" class="flex flex-wrap justify-center gap-2 mt-10">
-            <TagBadge
-              v-for="tag in tags"
-              :key="tag.id"
-              :name="tag.name"
-              :active="selectedTagSlug === tag.slug"
-              :clickable="true"
-              @click="toggleTag(tag)"
-            />
-          </div>
         </div>
       </section>
 
       <!-- Posts -->
       <section id="posts" class="mx-auto max-w-5xl px-4 pb-20 scroll-mt-20">
-        <div class="flex items-end justify-between mb-8">
-          <div>
-            <h2 class="font-display text-2xl font-semibold text-[#e4e6eb]">
-              {{ selectedTagSlug ? '筛选文章' : '最新发布' }}
-            </h2>
-            <p class="mt-1 text-sm text-muted">
-              {{ filteredPosts.length }} 篇文章
-              <span v-if="selectedTagSlug" class="text-primary">· 已按标签筛选</span>
-            </p>
-          </div>
-          <button
-            v-if="selectedTagSlug"
-            type="button"
-            class="text-sm text-muted hover:text-primary transition-colors"
-            @click="selectedTagSlug = null"
-          >
-            清除筛选
-          </button>
+        <div class="mb-8">
+          <h2 class="font-display text-2xl font-semibold text-[#e4e6eb]">
+            最新发布
+          </h2>
+          <p class="mt-1 text-sm text-muted">
+            {{ filteredPosts.length }} 篇文章
+          </p>
         </div>
 
         <div v-if="loading" class="py-20">
@@ -178,7 +134,7 @@ onMounted(() => {
         <EmptyState
           v-else-if="!filteredPosts.length"
           title="暂无文章"
-          :description="selectedTagSlug ? '该标签下还没有文章' : '快来发布第一篇文章吧'"
+          description="快来发布第一篇文章吧"
         />
 
         <template v-else>
