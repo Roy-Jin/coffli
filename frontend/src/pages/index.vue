@@ -1,327 +1,152 @@
-<template>
-  <div class="home-page">
-    <main class="main-content">
-      <div class="container">
-        <div class="page-header">
-          <div class="header-text">
-            <h2 class="page-title">{{ $t('home.latestPosts') }}</h2>
-            <p class="page-subtitle">{{ $t('home.postsSubtitle') }}</p>
-          </div>
-          <button v-if="userStore.isLoggedIn" class="write-btn" @click="goToNewPost">
-            <Pencil />
-            <span>{{ $t('home.writePost') }}</span>
-          </button>
-        </div>
-
-        <div v-if="loading" class="state-box">
-          <div class="spinner"></div>
-          <p>{{ $t('home.loadingPosts') }}</p>
-        </div>
-
-        <div v-else-if="error" class="state-box">
-          <AlertCircle class="state-icon error-icon" />
-          <p>{{ error }}</p>
-          <button class="secondary" @click="fetchPosts">
-            <RotateCcw />
-            <span>{{ $t('common.retry') }}</span>
-          </button>
-        </div>
-
-        <div v-else-if="posts.length === 0" class="state-box">
-          <Feather class="state-icon" />
-          <p>{{ $t('home.noPosts') }}</p>
-        </div>
-
-        <div v-else class="posts-grid">
-          <article v-for="post in posts" :key="post.id" class="post-card" @click="openPost(post.slug)">
-            <h3 class="post-card-title">{{ post.title }}</h3>
-            <p class="post-card-excerpt">{{ getExcerpt(post) }}</p>
-
-            <div v-if="post.tags && post.tags.length" class="post-card-tags">
-              <span v-for="tag in post.tags" :key="tag.id" class="tag-badge">{{ tag.name }}</span>
-            </div>
-
-            <div class="post-card-footer">
-              <span class="post-meta">
-                <Calendar />
-                {{ formatDate(post.created_at) }}
-              </span>
-              <span class="post-meta">
-                <Eye />
-                {{ post.view_count }}
-              </span>
-            </div>
-          </article>
-        </div>
-      </div>
-    </main>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted, inject } from 'vue'
-import { useRouter } from 'vue-router'
-import { useI18n } from 'vue-i18n'
-import { Pencil, AlertCircle, RotateCcw, Feather, Calendar, Eye } from 'lucide-vue-next'
-import apiClient, { type Post } from '@/api'
-import { useUserStore } from '@/stores/user'
+import { ref, computed, onMounted } from "vue";
+import { RouterLink } from "vue-router";
+import { Search, Plus } from "@lucide/vue";
+import AppHeader from "@/components/layout/AppHeader.vue";
+import AppFooter from "@/components/layout/AppFooter.vue";
+import PostCard from "@/components/post/PostCard.vue";
+import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
+import EmptyState from "@/components/common/EmptyState.vue";
+import TagBadge from "@/components/common/TagBadge.vue";
+import { getPosts, getAllTags } from "@/api/posts";
+import { useUserStore } from "@/stores/user";
+import type { Post, Tag } from "@/types/api";
 
-const router = useRouter()
-const { t } = useI18n()
-const userStore = useUserStore()
+const userStore = useUserStore();
 
-const header = inject('header') as { show: () => void; hide: () => void }
+const posts = ref<Post[]>([]);
+const tags = ref<Tag[]>([]);
+const loading = ref(true);
+const error = ref<string | null>(null);
+const selectedTagSlug = ref<string | null>(null);
 
-const posts = ref<Post[]>([])
-const loading = ref(true)
-const error = ref('')
+const filteredPosts = computed(() => {
+  const list = [...posts.value].sort((a, b) => {
+    if (a.is_pinned !== b.is_pinned) return b.is_pinned - a.is_pinned;
+    const aTime = new Date(a.published_at ?? a.created_at).getTime();
+    const bTime = new Date(b.published_at ?? b.created_at).getTime();
+    return bTime - aTime;
+  });
+  if (!selectedTagSlug.value) return list;
+  return list.filter((p) => p.tags.some((t) => t.slug === selectedTagSlug.value));
+});
 
-const formatDate = (dateStr: string): string => {
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  })
-}
-
-const getExcerpt = (post: Post): string => {
-  const text = post.summary || post.content
-  return text.length > 160 ? text.slice(0, 160).trimEnd() + '…' : text
-}
-
-const openPost = (slug: string) => {
-  router.push(`/post/${slug}`)
-}
-
-const goToNewPost = () => {
-  router.push('/post/new')
-}
-
-const fetchPosts = async () => {
-  loading.value = true
-  error.value = ''
+async function loadPosts() {
+  loading.value = true;
+  error.value = null;
   try {
-    const res = await apiClient.getPosts({ status: 'published', limit: 20 })
-    if (res.status === 200 && res.data) {
-      posts.value = res.data.posts
-    } else {
-      error.value = res.error?.message || t('home.loadError')
-    }
-  } catch {
-    error.value = t('home.loadError')
+    const res = await getPosts({ status: "published", limit: 20 });
+    posts.value = res.posts;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "加载文章失败";
   } finally {
-    loading.value = false
+    loading.value = false;
   }
+}
+
+async function loadTags() {
+  try {
+    const res = await getAllTags();
+    tags.value = res.tags;
+  } catch {
+    // tags are non-critical
+  }
+}
+
+function toggleTag(tag: Tag) {
+  selectedTagSlug.value =
+    selectedTagSlug.value === tag.slug ? null : tag.slug;
 }
 
 onMounted(() => {
-  header?.show()
-  fetchPosts()
-})
+  loadPosts();
+  loadTags();
+});
 </script>
 
-<style scoped>
-.home-page {
-  display: flex;
-  flex-direction: column;
-}
+<template>
+  <div class="min-h-screen flex flex-col">
+    <AppHeader />
 
-.main-content {
-  flex: 1;
-  padding: 3rem 0;
-}
+    <main class="flex-1">
+      <!-- Hero -->
+      <section class="mx-auto max-w-5xl px-4 pt-12 pb-8 text-center">
+        <h1
+          class="font-display text-5xl md:text-6xl font-bold bg-gradient-to-r from-primary via-primary-hover to-primary-soft bg-clip-text text-transparent"
+        >
+          Coffli
+        </h1>
+        <p class="mt-3 text-base text-muted">为 GitHub 用户打造的博客社区</p>
 
-.container {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 1rem;
-}
+        <!-- Search (visual only) -->
+        <div class="relative max-w-md mx-auto mt-6">
+          <Search
+            :size="18"
+            class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
+          />
+          <input
+            type="text"
+            placeholder="搜索文章..."
+            class="w-full pl-10 pr-4 py-2.5 rounded-cute bg-surface border border-border-soft text-sm text-[#e4e6eb] placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
+          />
+        </div>
 
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  gap: 1rem;
-  flex-wrap: wrap;
-  margin-bottom: 2.5rem;
-}
+        <!-- Featured tags -->
+        <div v-if="tags.length" class="flex flex-wrap justify-center gap-2 mt-6">
+          <TagBadge
+            v-for="tag in tags"
+            :key="tag.id"
+            :name="tag.name"
+            :active="selectedTagSlug === tag.slug"
+            :clickable="true"
+            @click="toggleTag(tag)"
+          />
+        </div>
+      </section>
 
-.page-title {
-  font-size: 2.25rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, var(--text-primary) 0%, var(--theme-color) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
+      <!-- Posts -->
+      <section class="mx-auto max-w-5xl px-4 pb-16">
+        <div v-if="loading" class="py-20">
+          <LoadingSpinner :size="32" />
+        </div>
 
-.page-subtitle {
-  color: var(--text-secondary);
-  font-size: 1rem;
-}
+        <div v-else-if="error" class="py-20 text-center">
+          <p class="text-muted mb-4">{{ error }}</p>
+          <button
+            type="button"
+            class="px-4 py-2 rounded-cute bg-primary hover:bg-primary-hover text-white text-sm transition-colors"
+            @click="loadPosts"
+          >
+            重试
+          </button>
+        </div>
 
-.write-btn {
-  background: var(--gradient-card);
-  color: var(--text-primary);
-  border: var(--border-light);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(20px);
-}
+        <EmptyState
+          v-else-if="!filteredPosts.length"
+          title="暂无文章"
+          :description="selectedTagSlug ? '该标签下还没有文章' : '快来发布第一篇文章吧'"
+        />
 
-.write-btn:hover {
-  border-color: var(--theme-color);
-  color: var(--theme-color);
-}
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <PostCard
+            v-for="post in filteredPosts"
+            :key="post.id"
+            :post="post"
+          />
+        </div>
+      </section>
+    </main>
 
-.state-box {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 1rem;
-  text-align: center;
-  padding: 4rem 2rem;
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(20px);
-  color: var(--text-secondary);
-}
+    <AppFooter />
 
-.state-icon {
-  font-size: 2.5rem;
-  color: var(--text-tertiary);
-}
-
-.error-icon {
-  color: var(--error-color);
-}
-
-.spinner {
-  width: 40px;
-  height: 40px;
-  border: 3px solid var(--bg-tertiary);
-  border-top-color: var(--theme-color);
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.posts-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  gap: 1.5rem;
-}
-
-.post-card {
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  padding: 1.75rem;
-  cursor: pointer;
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(20px);
-  transition: all 0.3s ease;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.post-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.post-card-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--text-primary);
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.post-card-excerpt {
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-  line-height: 1.6;
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.post-card-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-
-.tag-badge {
-  background: var(--bg-tertiary);
-  color: var(--text-secondary);
-  font-size: 0.75rem;
-  padding: 0.25rem 0.625rem;
-  border-radius: 0.375rem;
-  border: var(--border-light);
-}
-
-.post-card-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: auto;
-  padding-top: 0.5rem;
-}
-
-.post-meta {
-  font-size: 0.8rem;
-  color: var(--text-tertiary);
-  display: inline-flex;
-  align-items: center;
-  gap: 0.375rem;
-}
-
-@media (max-width: 768px) {
-  .main-content {
-    padding: 1.5rem 0;
-  }
-
-  .container {
-    padding: 0 0.75rem;
-  }
-
-  .page-title {
-    font-size: 2rem;
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-  }
-}
-
-@media (max-width: 480px) {
-  .main-content {
-    padding: 1rem 0;
-  }
-
-  .page-title {
-    font-size: 1.75rem;
-  }
-
-  .post-card {
-    padding: 1.25rem;
-  }
-}
-</style>
+    <!-- Write FAB -->
+    <RouterLink
+      v-if="userStore.isLoggedIn"
+      to="/new"
+      class="fixed bottom-6 right-6 z-30 w-14 h-14 flex items-center justify-center rounded-full bg-primary hover:bg-primary-hover text-white shadow-soft-lg transition-colors"
+      aria-label="写文章"
+    >
+      <Plus :size="24" />
+    </RouterLink>
+  </div>
+</template>

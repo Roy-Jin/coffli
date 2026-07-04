@@ -1,502 +1,320 @@
-<template>
-  <div class="kv-tab">
-    <div class="top-bar">
-      <span class="key-count">{{ $t('admin.keyCount', { count: keys.length }) }}</span>
-      <button class="btn-secondary" :disabled="loadingKeys" @click="refresh">
-        <Loader2 v-if="loadingKeys" class="spin" />
-        <RotateCcw v-else />
-        <span>{{ $t('common.refresh') }}</span>
-      </button>
-    </div>
-
-    <div class="kv-layout">
-      <aside class="key-list">
-        <div v-if="loadingKeys" class="hint">{{ $t('admin.loadingKeys') }}</div>
-        <div v-else-if="!keys.length" class="hint">{{ $t('admin.noKeysFound') }}</div>
-        <ul v-else class="keys">
-          <li
-            v-for="key in keys"
-            :key="key.name"
-            class="key-item"
-            :class="{ 'key-item--active': selectedKey === key.name }"
-            @click="selectKey(key.name)"
-          >
-            <Key />
-            <span class="key-name">{{ key.name }}</span>
-          </li>
-        </ul>
-      </aside>
-
-      <section class="editor">
-        <div v-if="!selectedKey" class="hint hint--center">{{ $t('admin.selectKeyHint') }}</div>
-        <template v-else>
-          <div class="editor-header">
-            <span class="editor-key">{{ selectedKey }}</span>
-            <div class="editor-actions">
-              <button class="btn-primary" :disabled="saving || deleting" @click="save">
-                <Loader2 v-if="saving" class="spin" />
-                <Save v-else />
-                <span>{{ $t('common.save') }}</span>
-              </button>
-              <button class="btn-danger" :disabled="saving || deleting" @click="remove">
-                <Loader2 v-if="deleting" class="spin" />
-                <Trash2 v-else />
-                <span>{{ $t('common.delete') }}</span>
-              </button>
-            </div>
-          </div>
-          <textarea
-            v-model="currentValue"
-            class="value-input"
-            :placeholder="$t('admin.keyValuePlaceholder')"
-            spellcheck="false"
-          ></textarea>
-
-          <div class="defaults">
-            <h4 class="defaults-title">
-              <Bookmark />
-              {{ $t('admin.managedDefaultKeys') }}
-            </h4>
-            <ul class="defaults-list">
-              <li v-for="d in defaults" :key="d.name" class="defaults-item">
-                <span class="defaults-name">{{ d.name }}</span>
-                <span class="defaults-value">{{ d.value }}</span>
-              </li>
-              <li v-if="!defaults.length" class="hint">{{ $t('admin.noDefaults') }}</li>
-            </ul>
-          </div>
-        </template>
-      </section>
-    </div>
-
-    <div v-if="statusMsg" class="status-bar" :class="`status-bar--${statusType}`">
-      <CheckCircle v-if="statusType === 'success'" />
-      <AlertCircle v-else />
-      <span>{{ statusMsg }}</span>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import {
-  Loader2,
-  RotateCcw,
-  Key,
-  Save,
-  Trash2,
-  Bookmark,
-  CheckCircle,
-  AlertCircle,
-} from 'lucide-vue-next'
-import adminApi from '@/utils/adminApi'
+import { ref, computed, onMounted } from "vue";
+import { RefreshCw, Plus, Edit, Trash2, Eye, Table } from "@lucide/vue";
+import { adminRequest, type BasicAuth } from "@/api/client";
+import { useToast } from "@/composables/useToast";
 
-interface KvKey { name: string }
-interface KvDefault { name: string; value: string }
+const props = defineProps<{ auth: BasicAuth }>();
 
-const { t } = useI18n()
-const keys = ref<KvKey[]>([])
-const defaults = ref<KvDefault[]>([])
-const selectedKey = ref('')
-const currentValue = ref('')
-const loadingKeys = ref(false)
-const saving = ref(false)
-const deleting = ref(false)
-const statusMsg = ref('')
-const statusType = ref<'success' | 'error'>('success')
-let statusTimer: ReturnType<typeof setTimeout> | undefined
+const toast = useToast();
 
-const showStatus = (type: 'success' | 'error', msg: string) => {
-  statusMsg.value = msg
-  statusType.value = type
-  if (statusTimer) clearTimeout(statusTimer)
-  statusTimer = setTimeout(() => { statusMsg.value = '' }, 3000)
+interface KvKey {
+  name: string;
+  metadata?: unknown;
 }
 
-const fetchKeys = async () => {
-  loadingKeys.value = true
+interface KvDefault {
+  name: string;
+  value: string;
+}
+
+type ModalMode = "view" | "edit" | "add";
+
+const keys = ref<KvKey[]>([]);
+const loading = ref(false);
+
+const showDefaults = ref(false);
+const defaults = ref<KvDefault[]>([]);
+const loadingDefaults = ref(false);
+
+const modalOpen = ref(false);
+const modalMode = ref<ModalMode>("view");
+const modalKey = ref("");
+const modalValue = ref("");
+const modalSaving = ref(false);
+
+const modalTitle = computed(() => {
+  if (modalMode.value === "add") return "添加 KV 键";
+  if (modalMode.value === "edit") return "编辑 KV 键";
+  return "查看 KV 键";
+});
+
+const modalReadonly = computed(() => modalMode.value === "view");
+const keyReadonly = computed(() => modalMode.value !== "add");
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error ? e.message : fallback;
+}
+
+async function loadKeys() {
+  loading.value = true;
   try {
-    const res = await adminApi.get<{ keys: KvKey[] }>('/admin/kv/list')
-    if (res.status >= 400) throw new Error(res.error?.message || t('admin.loadKeysFailed'))
-    keys.value = res.data?.keys ?? []
-  } catch (e) {
-    showStatus('error', e instanceof Error ? e.message : t('admin.loadKeysFailed'))
+    const res = await adminRequest<{ keys: KvKey[] }>(
+      "/admin/kv/ls",
+      {},
+      props.auth,
+    );
+    keys.value = res.keys;
+    toast.success(`已加载 ${res.keys.length} 个键`);
+  } catch (e: unknown) {
+    toast.error(errorMessage(e, "加载 KV 列表失败"));
   } finally {
-    loadingKeys.value = false
+    loading.value = false;
   }
 }
 
-const fetchDefaults = async () => {
+async function loadDefaults() {
+  showDefaults.value = !showDefaults.value;
+  if (!showDefaults.value || defaults.value.length > 0) return;
+  loadingDefaults.value = true;
   try {
-    const res = await adminApi.get<{ keys: KvDefault[] }>('/admin/kv/defaults')
-    if (res.status >= 400) return
-    defaults.value = res.data?.keys ?? []
-  } catch {
-    // defaults are informational; ignore failures
-  }
-}
-
-const selectKey = async (key: string) => {
-  selectedKey.value = key
-  currentValue.value = ''
-  try {
-    const res = await adminApi.get<{ key: string; value: string }>(`/admin/kv/${encodeURIComponent(key)}`)
-    if (res.status >= 400) {
-      showStatus('error', res.error?.message || t('admin.loadKeyValueFailed'))
-      return
-    }
-    currentValue.value = res.data?.value ?? ''
-  } catch (e) {
-    showStatus('error', e instanceof Error ? e.message : t('admin.loadKeyValueFailed'))
-  }
-}
-
-const save = async () => {
-  if (!selectedKey.value || saving.value) return
-  saving.value = true
-  try {
-    const res = await adminApi.put<{ key: string; value: string }>(
-      `/admin/kv/${encodeURIComponent(selectedKey.value)}`,
-      { value: currentValue.value },
-    )
-    if (res.status >= 400) {
-      showStatus('error', res.error?.message || t('admin.saveKeyFailed'))
-      return
-    }
-    showStatus('success', t('admin.keySaved', { key: selectedKey.value }))
-    await fetchKeys()
-  } catch (e) {
-    showStatus('error', e instanceof Error ? e.message : t('admin.saveKeyFailed'))
+    const res = await adminRequest<{ keys: KvDefault[] }>(
+      "/admin/kv/defaults",
+      {},
+      props.auth,
+    );
+    defaults.value = res.keys;
+    toast.success(`已加载 ${res.keys.length} 个默认值`);
+  } catch (e: unknown) {
+    toast.error(errorMessage(e, "加载默认值失败"));
+    showDefaults.value = false;
   } finally {
-    saving.value = false
+    loadingDefaults.value = false;
   }
 }
 
-const remove = async () => {
-  if (!selectedKey.value || deleting.value) return
-  if (!confirm(t('admin.deleteKeyConfirm', { key: selectedKey.value }))) return
-  deleting.value = true
+async function openModal(mode: ModalMode, key = "") {
+  modalMode.value = mode;
+  modalKey.value = key;
+  modalValue.value = "";
+  if (mode === "add") {
+    modalOpen.value = true;
+    return;
+  }
   try {
-    const res = await adminApi.delete<{ key: string }>(`/admin/kv/${encodeURIComponent(selectedKey.value)}`)
-    if (res.status >= 400) {
-      showStatus('error', res.error?.message || t('admin.deleteKeyFailed'))
-      return
-    }
-    showStatus('success', t('admin.keyDeleted', { key: selectedKey.value }))
-    selectedKey.value = ''
-    currentValue.value = ''
-    await fetchKeys()
-  } catch (e) {
-    showStatus('error', e instanceof Error ? e.message : t('admin.deleteKeyFailed'))
-  } finally {
-    deleting.value = false
+    const res = await adminRequest<{ key: string; value: string }>(
+      `/admin/kv/${encodeURIComponent(key)}`,
+      {},
+      props.auth,
+    );
+    modalValue.value = res.value;
+    modalOpen.value = true;
+  } catch (e: unknown) {
+    toast.error(errorMessage(e, "获取键值失败"));
   }
 }
 
-const refresh = () => {
-  fetchKeys()
+function closeModal() {
+  modalOpen.value = false;
+  modalKey.value = "";
+  modalValue.value = "";
+}
+
+async function saveModal() {
+  if (!modalKey.value.trim()) {
+    toast.error("键名不能为空");
+    return;
+  }
+  modalSaving.value = true;
+  try {
+    await adminRequest<{ key: string; value: string }>(
+      `/admin/kv/${encodeURIComponent(modalKey.value)}`,
+      { method: "PUT", body: { value: modalValue.value } },
+      props.auth,
+    );
+    toast.success(modalMode.value === "add" ? "已添加键" : "已保存");
+    closeModal();
+    await loadKeys();
+  } catch (e: unknown) {
+    toast.error(errorMessage(e, "保存失败"));
+  } finally {
+    modalSaving.value = false;
+  }
+}
+
+async function deleteKey(key: string) {
+  if (!window.confirm(`确认删除键 "${key}" 吗？`)) return;
+  try {
+    await adminRequest<{ key: string }>(
+      `/admin/kv/${encodeURIComponent(key)}`,
+      { method: "DELETE" },
+      props.auth,
+    );
+    toast.success(`已删除 ${key}`);
+    await loadKeys();
+  } catch (e: unknown) {
+    toast.error(errorMessage(e, "删除失败"));
+  }
 }
 
 onMounted(() => {
-  fetchKeys()
-  fetchDefaults()
-})
+  loadKeys();
+});
 </script>
 
-<style scoped>
-.kv-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+<template>
+  <div class="space-y-4">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <h2 class="text-xl font-semibold text-[#e4e6eb]">KV 管理</h2>
+      <div class="flex gap-2 flex-wrap">
+        <button
+          class="inline-flex items-center gap-2 px-3 py-2 rounded-cute bg-primary text-white hover:bg-primary-hover transition-colors"
+          @click="openModal('add')"
+        >
+          <Plus class="w-4 h-4" />
+          添加
+        </button>
+        <button
+          class="inline-flex items-center gap-2 px-3 py-2 rounded-cute bg-surface border border-border-soft text-[#e4e6eb] hover:bg-surface-hover transition-colors"
+          :class="{ 'ring-1 ring-primary': showDefaults }"
+          @click="loadDefaults"
+        >
+          <Table class="w-4 h-4" />
+          查看默认值
+        </button>
+        <button
+          class="inline-flex items-center gap-2 px-3 py-2 rounded-cute bg-surface border border-border-soft text-[#e4e6eb] hover:bg-surface-hover transition-colors disabled:opacity-50"
+          :disabled="loading"
+          @click="loadKeys"
+        >
+          <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': loading }" />
+          刷新
+        </button>
+      </div>
+    </div>
 
-.top-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-}
+    <div class="bg-surface rounded-cute border border-border-soft overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-surface-hover text-muted text-left">
+              <th class="px-4 py-3 font-medium">键名</th>
+              <th class="px-4 py-3 font-medium text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-if="loading && !keys.length">
+              <td colspan="2" class="px-4 py-8 text-center text-muted">加载中...</td>
+            </tr>
+            <tr v-else-if="!keys.length">
+              <td colspan="2" class="px-4 py-8 text-center text-muted">暂无数据</td>
+            </tr>
+            <tr
+              v-for="k in keys"
+              :key="k.name"
+              class="border-t border-border-soft hover:bg-surface-hover transition-colors"
+            >
+              <td class="px-4 py-3 font-mono text-[#e4e6eb] break-all">{{ k.name }}</td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <button
+                    class="p-1.5 rounded-cute-sm text-muted hover:text-primary hover:bg-surface transition-colors"
+                    title="查看"
+                    @click="openModal('view', k.name)"
+                  >
+                    <Eye class="w-4 h-4" />
+                  </button>
+                  <button
+                    class="p-1.5 rounded-cute-sm text-muted hover:text-primary hover:bg-surface transition-colors"
+                    title="编辑"
+                    @click="openModal('edit', k.name)"
+                  >
+                    <Edit class="w-4 h-4" />
+                  </button>
+                  <button
+                    class="p-1.5 rounded-cute-sm text-muted hover:text-red-400 hover:bg-surface transition-colors"
+                    title="删除"
+                    @click="deleteKey(k.name)"
+                  >
+                    <Trash2 class="w-4 h-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-.key-count {
-  font-size: 0.9rem;
-  color: var(--text-secondary);
-  font-weight: 500;
-}
+    <div
+      v-if="showDefaults"
+      class="bg-surface rounded-cute border border-border-soft p-4"
+    >
+      <div class="text-sm text-muted mb-3">默认值列表</div>
+      <div v-if="loadingDefaults" class="text-muted text-sm">加载中...</div>
+      <div v-else-if="!defaults.length" class="text-muted text-sm">暂无默认值</div>
+      <div v-else class="space-y-2">
+        <div
+          v-for="d in defaults"
+          :key="d.name"
+          class="border border-border-soft rounded-cute-sm p-3"
+        >
+          <div class="font-mono text-sm text-primary mb-1">{{ d.name }}</div>
+          <pre class="text-xs text-[#e4e6eb] whitespace-pre-wrap break-words font-mono">{{ d.value }}</pre>
+        </div>
+      </div>
+    </div>
 
-.kv-layout {
-  display: grid;
-  grid-template-columns: 240px 1fr;
-  gap: 1rem;
-  align-items: start;
-}
-
-.key-list {
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-  padding: 0.5rem;
-  max-height: 480px;
-  overflow-y: auto;
-}
-
-.keys {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.key-item {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 0.625rem 0.75rem;
-  border-radius: 0.5rem;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 0.85rem;
-  transition: background 0.2s ease, color 0.2s ease;
-}
-
-.key-item:hover {
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--text-primary);
-}
-
-.key-item--active {
-  background: var(--theme-color);
-  color: #fff;
-}
-
-.key-item--active:hover {
-  color: #fff;
-}
-
-.key-item :deep(.lucide) {
-  width: 0.75rem;
-  height: 0.75rem;
-  flex-shrink: 0;
-}
-
-.key-name {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  word-break: break-all;
-}
-
-.editor {
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-height: 300px;
-}
-
-.editor-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.editor-key {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  font-weight: 600;
-  word-break: break-all;
-}
-
-.editor-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.value-input {
-  width: 100%;
-  min-height: 180px;
-  resize: vertical;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.88rem;
-  line-height: 1.5;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: var(--border-light);
-  border-radius: 0.75rem;
-  padding: 0.875rem 1rem;
-}
-
-.value-input:focus {
-  outline: none;
-  border-color: var(--theme-color);
-  box-shadow: 0 0 0 3px var(--theme-focus);
-}
-
-.defaults {
-  border-top: var(--border-light);
-  padding-top: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.625rem;
-}
-
-.defaults-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.defaults-title :deep(.lucide) {
-  color: var(--theme-color);
-}
-
-.defaults-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.375rem;
-}
-
-.defaults-item {
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.5rem 0.625rem;
-  background: var(--bg-tertiary);
-  border-radius: 0.5rem;
-  font-size: 0.8rem;
-}
-
-.defaults-name {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  color: var(--text-primary);
-  min-width: 180px;
-  flex-shrink: 0;
-}
-
-.defaults-value {
-  color: var(--text-tertiary);
-  word-break: break-all;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-}
-
-.hint {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-  padding: 0.5rem 0.75rem;
-}
-
-.hint--center {
-  text-align: center;
-  padding: 3rem 1rem;
-}
-
-.status-bar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  font-size: 0.88rem;
-}
-
-.status-bar--success {
-  background: rgba(16, 185, 129, 0.12);
-  color: var(--success-color);
-  border: 1px solid var(--success-color);
-}
-
-.status-bar--error {
-  background: rgba(239, 68, 68, 0.12);
-  color: var(--error-color);
-  border: 1px solid var(--error-color);
-}
-
-.btn-primary,
-.btn-secondary,
-.btn-danger {
-  padding: 0.5rem 1rem;
-  border-radius: 0.5rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  transition: all 0.25s ease;
-}
-
-.btn-primary {
-  background: var(--theme-color);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  box-shadow: 0 6px 16px var(--theme-hover);
-}
-
-.btn-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: var(--border-light);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--border-color);
-}
-
-.btn-danger {
-  background: var(--error-color);
-  color: #fff;
-}
-
-.btn-danger:hover:not(:disabled) {
-  box-shadow: 0 6px 16px var(--error-color);
-}
-
-.btn-primary:disabled,
-.btn-secondary:disabled,
-.btn-danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-@media (max-width: 768px) {
-  .kv-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .key-list {
-    max-height: 240px;
-  }
-
-  .editor-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .defaults-name {
-    min-width: 120px;
-  }
-}
-</style>
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="modalOpen"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          @click.self="closeModal"
+        >
+          <div class="bg-surface rounded-cute-lg border border-border-soft shadow-soft-lg w-full max-w-2xl">
+            <div class="flex items-center justify-between px-5 py-4 border-b border-border-soft">
+              <h3 class="text-base font-semibold text-[#e4e6eb]">{{ modalTitle }}</h3>
+              <button
+                class="text-muted hover:text-[#e4e6eb] text-xl leading-none"
+                @click="closeModal"
+              >
+                ×
+              </button>
+            </div>
+            <div class="p-5 space-y-4">
+              <div>
+                <label class="block text-xs text-muted mb-1">键名</label>
+                <input
+                  v-model="modalKey"
+                  type="text"
+                  :readonly="keyReadonly"
+                  class="w-full px-3 py-2 rounded-cute bg-[#0f1419] border border-border-soft text-[#e4e6eb] font-mono text-sm focus:outline-none focus:border-primary disabled:opacity-60"
+                  :class="{ 'cursor-not-allowed': keyReadonly }"
+                  placeholder="输入键名"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-muted mb-1">值</label>
+                <textarea
+                  v-model="modalValue"
+                  rows="10"
+                  :readonly="modalReadonly"
+                  class="w-full px-3 py-2 rounded-cute bg-[#0f1419] border border-border-soft text-[#e4e6eb] font-mono text-sm focus:outline-none focus:border-primary resize-y disabled:opacity-60"
+                  :class="{ 'cursor-not-allowed': modalReadonly }"
+                  placeholder="输入值"
+                />
+              </div>
+            </div>
+            <div class="flex justify-end gap-2 px-5 py-4 border-t border-border-soft">
+              <button
+                class="px-4 py-2 rounded-cute bg-surface border border-border-soft text-[#e4e6eb] hover:bg-surface-hover transition-colors"
+                @click="closeModal"
+              >
+                {{ modalReadonly ? "关闭" : "取消" }}
+              </button>
+              <button
+                v-if="!modalReadonly"
+                class="px-4 py-2 rounded-cute bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                :disabled="modalSaving"
+                @click="saveModal"
+              >
+                {{ modalSaving ? "保存中..." : "保存" }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+  </div>
+</template>

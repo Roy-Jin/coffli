@@ -1,54 +1,33 @@
 <script setup lang="ts">
-import { ref, provide, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import Modal from './components/useModal.vue'
-import Header from './components/useHeader.vue'
-import apiClient from './api'
-import { useUserStore } from './stores/user'
+import { useUiStore } from "@/stores/ui";
 
-const modalRef = ref()
-const headerRef = ref()
-const router = useRouter()
-const userStore = useUserStore()
-
-provide('modal', {
-  showToast: (options: any) => modalRef.value?.showToast(options),
-  hideToast: () => modalRef.value?.hideToast(),
-  showModal: (options: any) => modalRef.value?.showModal(options),
-  hideModal: () => modalRef.value?.hideModal()
-})
-
-provide('header', {
-  show: () => headerRef.value?.show(),
-  hide: () => headerRef.value?.hide()
-})
-
-onMounted(async () => {
-  const valid = await apiClient.checkAuth()
-  if (!valid) {
-    userStore.clearAuth()
-  }
-
-  router.afterEach(() => {
-    const appElement = document.getElementById('app')
-    if (appElement) {
-      appElement.scrollIntoView({
-        block: 'start',
-        behavior: 'smooth'
-      })
-    }
-  })
-})
-
+const uiStore = useUiStore();
 </script>
 
 <template>
-  <Header ref="headerRef" />
-  <router-view />
-  <Modal ref="modalRef" />
-</template>
+  <div class="min-h-screen flex flex-col">
+    <RouterView v-slot="{ Component }">
+      <Transition name="fade" mode="out-in">
+        <component :is="Component" />
+      </Transition>
+    </RouterView>
 
-<style>
-@import "tailwindcss";
-@import '@styles/base.css';
-</style>
+    <div class="fixed top-4 right-4 z-50 flex flex-col gap-2 pointer-events-none">
+      <TransitionGroup name="slide-up">
+        <div
+          v-for="toast in uiStore.toasts"
+          :key="toast.id"
+          class="px-4 py-3 rounded-cute shadow-soft-lg min-w-[200px] max-w-[360px] text-sm cursor-pointer pointer-events-auto"
+          :class="{
+            'bg-primary text-white': toast.type === 'success',
+            'bg-red-500 text-white': toast.type === 'error',
+            'bg-surface text-[#e4e6eb] border border-[#2a323c]': toast.type === 'info',
+          }"
+          @click="uiStore.removeToast(toast.id)"
+        >
+          {{ toast.message }}
+        </div>
+      </TransitionGroup>
+    </div>
+  </div>
+</template>

@@ -1,362 +1,219 @@
+<script setup lang="ts">
+import { ref } from "vue";
+import { Play, Zap, Table } from "@lucide/vue";
+import { adminRequest, type BasicAuth } from "@/api/client";
+import { useToast } from "@/composables/useToast";
+
+const props = defineProps<{ auth: BasicAuth }>();
+
+const toast = useToast();
+
+interface SqlMeta {
+  columns?: string[];
+  rows_read?: number;
+  rows_written?: number;
+  changes?: number;
+  duration?: number;
+  last_row_id?: number;
+  size_after?: number;
+  served_by?: string;
+}
+
+type SqlResult =
+  | { type: "query"; results: Record<string, unknown>[]; meta: SqlMeta }
+  | { type: "command"; success: boolean; meta: SqlMeta };
+
+interface SqlResponse {
+  message: string;
+  statements: string[];
+  results: SqlResult[];
+}
+
+const SQL_TEMPLATES: { label: string; sql: string }[] = [
+  { label: "表列表", sql: "SELECT name FROM sqlite_master WHERE type='table';" },
+  { label: "Users", sql: "SELECT * FROM users LIMIT 10;" },
+  { label: "Posts", sql: "SELECT * FROM posts LIMIT 10;" },
+  { label: "Tags", sql: "SELECT * FROM tags LIMIT 10;" },
+  { label: "Schema", sql: "SELECT sql FROM sqlite_master WHERE type='table';" },
+];
+
+const sql = ref("SELECT name FROM sqlite_master WHERE type='table';");
+const results = ref<SqlResult[]>([]);
+const lastMessage = ref("");
+const error = ref("");
+const loading = ref(false);
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error ? e.message : fallback;
+}
+
+function useTemplate(tpl: string) {
+  sql.value = tpl;
+}
+
+function getColumns(result: SqlResult): string[] {
+  if (result.type !== "query") return [];
+  if (result.meta.columns?.length) return result.meta.columns;
+  if (result.results.length === 0) return [];
+  return Object.keys(result.results[0]);
+}
+
+function formatCell(value: unknown): string {
+  if (value === null) return "NULL";
+  if (value === undefined) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+function metaSummary(meta: SqlMeta): string {
+  const parts: string[] = [];
+  if (meta.duration !== undefined) parts.push(`耗时 ${(meta.duration / 1000).toFixed(2)} ms`);
+  if (meta.rows_read !== undefined) parts.push(`读取 ${meta.rows_read} 行`);
+  if (meta.rows_written !== undefined) parts.push(`写入 ${meta.rows_written} 行`);
+  if (meta.changes !== undefined) parts.push(`变更 ${meta.changes} 行`);
+  if (meta.last_row_id !== undefined) parts.push(`last_row_id=${meta.last_row_id}`);
+  if (meta.size_after !== undefined) parts.push(`DB 大小 ${meta.size_after} B`);
+  return parts.join(" · ");
+}
+
+async function execute() {
+  if (!sql.value.trim()) {
+    toast.error("请输入 SQL 语句");
+    return;
+  }
+  loading.value = true;
+  error.value = "";
+  results.value = [];
+  lastMessage.value = "";
+  try {
+    const res = await adminRequest<SqlResponse>(
+      "/admin/sql",
+      { method: "POST", body: { sql: sql.value } },
+      props.auth,
+    );
+    results.value = res.results;
+    lastMessage.value = res.message;
+    toast.success(res.message);
+  } catch (e: unknown) {
+    error.value = errorMessage(e, "执行失败");
+    toast.error(error.value);
+  } finally {
+    loading.value = false;
+  }
+}
+</script>
+
 <template>
-  <div class="sql-tab">
-    <div class="editor-card">
+  <div class="space-y-4">
+    <h2 class="text-xl font-semibold text-[#e4e6eb]">SQL 执行</h2>
+
+    <div class="bg-surface rounded-cute border border-border-soft p-4 space-y-3">
+      <div class="flex items-center gap-2 flex-wrap">
+        <Zap class="w-4 h-4 text-muted" />
+        <span class="text-xs text-muted">快捷模板：</span>
+        <button
+          v-for="tpl in SQL_TEMPLATES"
+          :key="tpl.label"
+          class="px-2 py-1 rounded-cute-sm bg-surface-hover border border-border-soft text-xs text-[#e4e6eb] hover:border-primary hover:text-primary transition-colors"
+          @click="useTemplate(tpl.sql)"
+        >
+          {{ tpl.label }}
+        </button>
+      </div>
+
       <textarea
         v-model="sql"
-        class="sql-input"
-        :placeholder="$t('admin.sqlPlaceholder')"
-        spellcheck="false"
-      ></textarea>
+        rows="10"
+        class="w-full min-h-[200px] px-3 py-2 rounded-cute bg-[#0f1419] border border-border-soft text-[#e4e6eb] font-mono text-sm focus:outline-none focus:border-primary resize-y"
+        placeholder="输入 SQL 语句（多条以 ; 分隔）"
+      />
 
-      <div class="actions">
-        <button class="btn-primary" :disabled="executing || !sql.trim()" @click="execute">
-          <Loader2 v-if="executing" class="spin" />
-          <span>{{ executing ? $t('admin.executing') : $t('admin.execute') }}</span>
+      <div class="flex justify-end">
+        <button
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-cute bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="loading"
+          @click="execute"
+        >
+          <Play class="w-4 h-4" />
+          {{ loading ? "执行中..." : "执行" }}
         </button>
-        <button class="btn-secondary" :disabled="executing" @click="clear">{{ $t('common.clear') }}</button>
       </div>
     </div>
 
-    <div v-if="error" class="error-box">
-      <AlertTriangle />
-      <span>{{ error }}</span>
+    <div
+      v-if="error"
+      class="bg-red-500/10 border border-red-500/40 rounded-cute p-4 text-red-400 text-sm break-words"
+    >
+      <div class="font-medium mb-1">执行出错</div>
+      <pre class="whitespace-pre-wrap break-words font-mono text-xs">{{ error }}</pre>
     </div>
 
-    <div v-if="resultBlocks.length" class="results">
-      <div v-for="(block, idx) in resultBlocks" :key="idx" class="result-block">
-        <div class="result-header">
-          <span class="result-index">{{ $t('admin.statement', { n: idx + 1 }) }}</span>
-          <span v-if="block.type" class="result-tag" :class="`result-tag--${block.type}`">{{ block.typeLabel }}</span>
+    <div v-if="results.length" class="space-y-4">
+      <div class="text-sm text-muted">
+        {{ lastMessage }} · 共 {{ results.length }} 个结果
+      </div>
+
+      <div
+        v-for="(r, i) in results"
+        :key="i"
+        class="bg-surface rounded-cute border border-border-soft p-4"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2 text-sm text-[#e4e6eb]">
+            <Table class="w-4 h-4 text-primary" />
+            <span>结果 #{{ i + 1 }}</span>
+            <span
+              class="px-2 py-0.5 rounded-cute-sm text-xs"
+              :class="r.type === 'query' ? 'bg-primary/20 text-primary' : 'bg-surface-hover text-muted'"
+            >
+              {{ r.type }}
+            </span>
+          </div>
+          <span v-if="r.meta" class="text-xs text-muted">{{ metaSummary(r.meta) }}</span>
         </div>
 
-        <div v-if="block.rows && block.rows.length" class="table-wrap">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th v-for="col in block.columns" :key="col">{{ col }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, rIdx) in block.rows" :key="rIdx">
-                <td v-for="col in block.columns" :key="col">{{ formatCell(row[col]) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div v-else-if="block.rows && !block.rows.length" class="empty-hint">{{ $t('admin.noRowsReturned') }}</div>
-
-        <div v-if="block.success !== undefined" class="status-line" :class="block.success ? 'status-line--ok' : 'status-line--err'">
-          <CheckCircle v-if="block.success" />
-          <XCircle v-else />
-          <span>{{ block.success ? $t('admin.executedSuccessfully') : $t('admin.executionFailed') }}</span>
-        </div>
-
-        <div v-if="block.meta" class="meta-line">
-          <span v-for="(v, k) in block.meta" :key="k" class="meta-item">
-            <span class="meta-key">{{ k }}:</span>
-            <span class="meta-val">{{ v }}</span>
+        <div v-if="r.type === 'command'" class="text-sm">
+          <span :class="r.success ? 'text-primary' : 'text-red-400'">
+            {{ r.success ? "执行成功" : "执行失败" }}
           </span>
+        </div>
+
+        <div v-else>
+          <div v-if="!r.results.length" class="text-sm text-muted">无数据</div>
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="bg-surface-hover text-muted text-left">
+                  <th class="px-3 py-2 font-medium">#</th>
+                  <th
+                    v-for="col in getColumns(r)"
+                    :key="col"
+                    class="px-3 py-2 font-medium whitespace-nowrap"
+                  >
+                    {{ col }}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="(row, ri) in r.results"
+                  :key="ri"
+                  class="border-t border-border-soft"
+                >
+                  <td class="px-3 py-2 text-muted">{{ ri + 1 }}</td>
+                  <td
+                    v-for="col in getColumns(r)"
+                    :key="col"
+                    class="px-3 py-2 font-mono text-[#e4e6eb] break-all max-w-[400px]"
+                  >
+                    {{ formatCell(row[col]) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-
-<script setup lang="ts">
-import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { Loader2, AlertTriangle, CheckCircle, XCircle } from 'lucide-vue-next'
-import adminApi from '@/utils/adminApi'
-
-interface ResultBlock {
-  type?: string
-  typeLabel?: string
-  rows?: Record<string, unknown>[]
-  columns: string[]
-  success?: boolean
-  meta?: Record<string, unknown>
-}
-
-const { t } = useI18n()
-const sql = ref('')
-const executing = ref(false)
-const error = ref('')
-const rawBlocks = ref<ResultBlock[]>([])
-
-const resultBlocks = computed(() => rawBlocks.value.map((block) => ({
-  ...block,
-  typeLabel: block.type ? t(`admin.resultTypes.${block.type}`) : undefined,
-})))
-
-const execute = async () => {
-  if (!sql.value.trim() || executing.value) return
-  executing.value = true
-  error.value = ''
-  rawBlocks.value = []
-  try {
-    const res = await adminApi.post<{ results: unknown[] }>('/admin/sql', { sql: sql.value })
-    if (res.status >= 400) {
-      throw new Error(res.error?.message || t('admin.executeFailed'))
-    }
-    const results = res.data?.results ?? []
-    rawBlocks.value = results.map((item) => {
-      const obj = (item ?? {}) as Record<string, unknown>
-      const rows = Array.isArray(obj.results) ? obj.results as Record<string, unknown>[] : undefined
-      const columns = rows && rows.length ? Object.keys(rows[0]!) : []
-      const type = typeof obj.type === 'string' ? obj.type : undefined
-      return {
-        type,
-        rows,
-        columns,
-        success: typeof obj.success === 'boolean' ? obj.success : undefined,
-        meta: obj.meta && typeof obj.meta === 'object' ? obj.meta as Record<string, unknown> : undefined,
-      }
-    })
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : t('admin.executeFailed')
-  } finally {
-    executing.value = false
-  }
-}
-
-const clear = () => {
-  sql.value = ''
-  error.value = ''
-  rawBlocks.value = []
-}
-
-const formatCell = (val: unknown): string => {
-  if (val === null || val === undefined) return t('common.notAvailable')
-  if (typeof val === 'object') return JSON.stringify(val)
-  return String(val)
-}
-</script>
-
-<style scoped>
-.sql-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.editor-card {
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  padding: 1.25rem;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.sql-input {
-  width: 100%;
-  min-height: 180px;
-  resize: vertical;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.9rem;
-  line-height: 1.5;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: var(--border-light);
-  border-radius: 0.75rem;
-  padding: 1rem;
-  backdrop-filter: blur(10px);
-}
-
-.sql-input:focus {
-  outline: none;
-  border-color: var(--theme-color);
-  box-shadow: 0 0 0 3px var(--theme-focus);
-}
-
-.actions {
-  display: flex;
-  gap: 0.75rem;
-}
-
-.btn-primary,
-.btn-secondary {
-  padding: 0.625rem 1.25rem;
-  border-radius: 0.625rem;
-  font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  transition: all 0.25s ease;
-}
-
-.btn-primary {
-  background: var(--theme-color);
-  color: #fff;
-}
-
-.btn-primary:hover:not(:disabled) {
-  box-shadow: 0 8px 20px var(--theme-hover);
-}
-
-.btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-secondary {
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
-  border: var(--border-light);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background: var(--border-color);
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.error-box {
-  display: flex;
-  align-items: center;
-  gap: 0.625rem;
-  padding: 1rem 1.25rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid var(--error-color);
-  border-radius: 0.75rem;
-  color: var(--error-color);
-}
-
-.results {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.result-block {
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  padding: 1rem 1.25rem;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.result-header {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.result-index {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-}
-
-.result-tag {
-  font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 0.375rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.result-tag--query {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-}
-
-.result-tag--command {
-  background: rgba(245, 158, 11, 0.15);
-  color: var(--warning-color);
-}
-
-.table-wrap {
-  overflow-x: auto;
-  border: var(--border-light);
-  border-radius: 0.625rem;
-}
-
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.85rem;
-}
-
-.data-table thead th {
-  text-align: left;
-  padding: 0.625rem 0.875rem;
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-bottom: var(--border-light);
-  white-space: nowrap;
-  background: var(--bg-secondary);
-}
-
-.data-table tbody td {
-  padding: 0.625rem 0.875rem;
-  color: var(--text-primary);
-  border-bottom: var(--border-light);
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-  font-size: 0.82rem;
-  word-break: break-all;
-}
-
-.data-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.data-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.empty-hint {
-  color: var(--text-tertiary);
-  font-size: 0.85rem;
-  padding: 0.5rem 0;
-}
-
-.status-line {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.9rem;
-  font-weight: 500;
-}
-
-.status-line--ok {
-  color: var(--success-color);
-}
-
-.status-line--err {
-  color: var(--error-color);
-}
-
-.meta-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem 1.25rem;
-  font-size: 0.78rem;
-  color: var(--text-tertiary);
-}
-
-.meta-item {
-  display: inline-flex;
-  gap: 0.25rem;
-}
-
-.meta-key {
-  color: var(--text-secondary);
-}
-</style>

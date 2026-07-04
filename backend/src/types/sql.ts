@@ -50,6 +50,13 @@ export interface Tag {
   slug: string;
 }
 
+export interface Author {
+  id: number;
+  github_login: string;
+  display_name: string | null;
+  avatar_url: string | null;
+}
+
 export interface Comment {
   id: number;
   post_id: number;
@@ -59,4 +66,23 @@ export interface Comment {
   is_approved: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface CommentWithAuthor extends Comment {
+  author: Author;
+}
+
+export interface GuestbookMessage {
+  id: number;
+  owner_id: number;
+  author_id: number;
+  parent_id: number | null;
+  content: string;
+  is_approved: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GuestbookMessageWithAuthor extends GuestbookMessage {
+  author: Author;
 }

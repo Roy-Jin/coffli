@@ -3,8 +3,12 @@ import { createError, createSuccess, ReasonPhrases } from "@/utils/respond";
 import { requireAuth, getCurrentUser } from "@/utils/session";
 import {
     attachTagsToPost,
+    createComment,
     createPost,
+    deleteComment,
     getAllTags,
+    getCommentById,
+    getCommentsByPostId,
     getPostBySlug,
     getPosts,
     getTagsByPostId,
@@ -30,15 +34,12 @@ posts.get("/", async (c) => {
         const parsed = parseInt(offset, 10);
         if (!isNaN(parsed)) options.offset = parsed;
     }
-
-    let results = await getPosts(c.env.D1, options);
-
     if (author) {
         const authorId = parseInt(author, 10);
-        if (!isNaN(authorId)) {
-            results = results.filter((p) => p.author_id === authorId);
-        }
+        if (!isNaN(authorId)) options.author_id = authorId;
     }
+
+    const results = await getPosts(c.env.D1, options);
 
     const withTags = await Promise.all(
         results.map(async (post) => ({
@@ -242,6 +243,101 @@ posts.delete("/:slug", requireAuth, async (c) => {
 
     return c.json(
         createSuccess({ message: "Post deleted successfully" }),
+    );
+});
+
+// GET /api/v1/posts/:slug/comments → List comments for a post
+posts.get("/:slug/comments", async (c) => {
+    const slug = c.req.param("slug");
+    const post = await getPostBySlug(c.env.D1, slug);
+    if (!post) {
+        return c.json(
+            createError(ReasonPhrases.NOT_FOUND, "Post not found"),
+            404,
+        );
+    }
+    const comments = await getCommentsByPostId(c.env.D1, post.id);
+    return c.json(createSuccess({ comments }));
+});
+
+// POST /api/v1/posts/:slug/comments → Create a comment
+posts.post("/:slug/comments", requireAuth, async (c) => {
+    const user = getCurrentUser(c);
+    const slug = c.req.param("slug");
+    const post = await getPostBySlug(c.env.D1, slug);
+    if (!post) {
+        return c.json(
+            createError(ReasonPhrases.NOT_FOUND, "Post not found"),
+            404,
+        );
+    }
+
+    let body: { content: string; parent_id?: number };
+    try {
+        body = await c.req.json();
+    } catch {
+        return c.json(
+            createError(ReasonPhrases.BAD_REQUEST, "Invalid JSON body"),
+            400,
+        );
+    }
+
+    if (!body.content || !body.content.trim()) {
+        return c.json(
+            createError(ReasonPhrases.BAD_REQUEST, "content is required"),
+            400,
+        );
+    }
+
+    await createComment(c.env.D1, {
+        post_id: post.id,
+        user_id: user.id,
+        content: body.content.trim(),
+        parent_id: body.parent_id,
+    });
+
+    const comments = await getCommentsByPostId(c.env.D1, post.id);
+    return c.json(
+        createSuccess({
+            message: "Comment created successfully",
+            comments,
+        }),
+        201,
+    );
+});
+
+// DELETE /api/v1/posts/comments/:id → Delete a comment (owner or admin)
+posts.delete("/comments/:id", requireAuth, async (c) => {
+    const user = getCurrentUser(c);
+    const id = parseInt(c.req.param("id"), 10);
+    if (isNaN(id)) {
+        return c.json(
+            createError(ReasonPhrases.BAD_REQUEST, "Invalid comment id"),
+            400,
+        );
+    }
+
+    const comment = await getCommentById(c.env.D1, id);
+    if (!comment) {
+        return c.json(
+            createError(ReasonPhrases.NOT_FOUND, "Comment not found"),
+            404,
+        );
+    }
+
+    if (comment.user_id !== user.id && user.role !== "admin") {
+        return c.json(
+            createError(
+                ReasonPhrases.FORBIDDEN,
+                "You can only delete your own comments",
+            ),
+            403,
+        );
+    }
+
+    await deleteComment(c.env.D1, id);
+    return c.json(
+        createSuccess({ message: "Comment deleted successfully" }),
     );
 });
 

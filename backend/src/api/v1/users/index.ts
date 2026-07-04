@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import { createError, createSuccess, ReasonPhrases } from "@/utils/respond";
 import { requireAuth, getCurrentUser } from "@/utils/session";
-import { getUserByGithubLogin } from "@/utils/sql";
+import {
+    createGuestbookMessage,
+    getGuestbookByOwnerId,
+    getUserByGithubLogin,
+} from "@/utils/sql";
 
 const users = new Hono<{ Bindings: CloudflareBindings }>();
 
@@ -94,6 +98,66 @@ users.get("/:username", async (c) => {
 
     const { password_hash, ...publicUser } = user;
     return c.json(createSuccess({ user: publicUser }));
+});
+
+// GET /api/v1/users/:username/guestbook → List guestbook messages
+users.get("/:username/guestbook", async (c) => {
+    const username = c.req.param("username");
+    const owner = await getUserByGithubLogin(c.env.D1, username);
+    if (!owner) {
+        return c.json(
+            createError(ReasonPhrases.NOT_FOUND, "User not found"),
+            404,
+        );
+    }
+    const messages = await getGuestbookByOwnerId(c.env.D1, owner.id);
+    return c.json(createSuccess({ messages }));
+});
+
+// POST /api/v1/users/:username/guestbook → Leave a guestbook message
+users.post("/:username/guestbook", requireAuth, async (c) => {
+    const user = getCurrentUser(c);
+    const username = c.req.param("username");
+    const owner = await getUserByGithubLogin(c.env.D1, username);
+    if (!owner) {
+        return c.json(
+            createError(ReasonPhrases.NOT_FOUND, "User not found"),
+            404,
+        );
+    }
+
+    let body: { content: string; parent_id?: number };
+    try {
+        body = await c.req.json();
+    } catch {
+        return c.json(
+            createError(ReasonPhrases.BAD_REQUEST, "Invalid JSON body"),
+            400,
+        );
+    }
+
+    if (!body.content || !body.content.trim()) {
+        return c.json(
+            createError(ReasonPhrases.BAD_REQUEST, "content is required"),
+            400,
+        );
+    }
+
+    await createGuestbookMessage(c.env.D1, {
+        owner_id: owner.id,
+        author_id: user.id,
+        content: body.content.trim(),
+        parent_id: body.parent_id,
+    });
+
+    const messages = await getGuestbookByOwnerId(c.env.D1, owner.id);
+    return c.json(
+        createSuccess({
+            message: "Guestbook message created successfully",
+            messages,
+        }),
+        201,
+    );
 });
 
 export default users;

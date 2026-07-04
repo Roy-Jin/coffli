@@ -1,26 +1,20 @@
-import { createApp } from 'vue'
-import { createPinia } from 'pinia'
-import { routes } from 'vue-router/auto-routes'
-import { createRouter, createWebHistory } from 'vue-router'
-import piniaPluginPersistedstate from 'pinia-plugin-persistedstate'
-import i18n, { setI18nLanguage } from './i18n'
-import { useLanguageStore } from './stores/language'
+import { createApp } from "vue";
+import { createPinia } from "pinia";
+import piniaPluginPersistedstate from "pinia-plugin-persistedstate";
+import "katex/dist/katex.min.css";
+import App from "./App.vue";
+import router from "./router";
+import { useUserStore } from "./stores/user";
+import "./style.css";
 
-import App from './App.vue'
+const app = createApp(App);
+const pinia = createPinia();
+pinia.use(piniaPluginPersistedstate);
 
-const app = createApp(App)
-const pinia = createPinia().use(piniaPluginPersistedstate)
+app.use(pinia);
+app.use(router);
 
-// 使用插件
-app.use(pinia)
-app.use(createRouter({
-    history: createWebHistory(),
-    routes,
-}))
-app.use(i18n)
+app.mount("#app");
 
-// 设置语言（必须在挂载前设置）
-const languageStore = useLanguageStore()
-setI18nLanguage(languageStore.getCurrentLanguage)
-
-app.mount('#app')
+const userStore = useUserStore();
+userStore.fetchUser().catch(() => {});

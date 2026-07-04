@@ -1,194 +1,133 @@
-<template>
-  <div class="dashboard-tab">
-    <div v-if="loading" class="state-block">
-      <Loader2 class="spin" />
-      <span>{{ $t('admin.loadingDashboard') }}</span>
-    </div>
-
-    <div v-else-if="error" class="state-block state-block--error">
-      <AlertTriangle />
-      <span>{{ error }}</span>
-    </div>
-
-    <section v-else class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon stat-icon--blue">
-          <Key />
-        </div>
-        <div class="stat-body">
-          <div class="stat-label">{{ $t('admin.kvKeyCount') }}</div>
-          <div class="stat-value">{{ kvKeyCount }}</div>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-icon" :class="systemOk ? 'stat-icon--green' : 'stat-icon--red'">
-          <Activity v-if="systemOk" />
-          <AlertCircle v-else />
-        </div>
-        <div class="stat-body">
-          <div class="stat-label">{{ $t('admin.systemStatus') }}</div>
-          <div class="stat-value" :class="systemOk ? 'stat-value--ok' : 'stat-value--err'">
-            {{ systemOk ? $t('admin.systemOk') : $t('admin.systemError') }}
-          </div>
-        </div>
-      </div>
-    </section>
-  </div>
-</template>
-
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useI18n } from 'vue-i18n'
-import { Loader2, AlertTriangle, Key, Activity, AlertCircle } from 'lucide-vue-next'
-import adminApi from '@/utils/adminApi'
+import { ref, onMounted } from "vue";
+import { Database, RefreshCw, Zap } from "@lucide/vue";
+import { adminRequest, type BasicAuth } from "@/api/client";
+import { useToast } from "@/composables/useToast";
 
-interface KvKey { name: string }
+const props = defineProps<{ auth: BasicAuth }>();
 
-const { t } = useI18n()
-const kvKeyCount = ref(0)
-const systemOk = ref(false)
-const loading = ref(true)
-const error = ref('')
+const toast = useToast();
 
-const fetchDashboard = async () => {
-  loading.value = true
-  error.value = ''
+interface KvKey {
+  name: string;
+  metadata?: unknown;
+}
+
+interface InitResponse {
+  message: string;
+  data?: { kv: Record<string, unknown>; d1: unknown };
+}
+
+const kvCount = ref(0);
+const initMessage = ref("");
+const initStatus = ref<"idle" | "success" | "error">("idle");
+const loadingInit = ref(false);
+const loadingKeys = ref(false);
+
+function errorMessage(e: unknown, fallback: string): string {
+  return e instanceof Error ? e.message : fallback;
+}
+
+async function loadKvList() {
+  loadingKeys.value = true;
   try {
-    const [kvRes, okRes] = await Promise.all([
-      adminApi.get<{ keys: KvKey[] }>('/admin/kv/list'),
-      adminApi.get<{ message: string }>('/admin/ok'),
-    ])
-
-    if (kvRes.status >= 400) {
-      throw new Error(kvRes.error?.message || `Failed to load KV keys (${kvRes.status})`)
-    }
-    if (okRes.status >= 400) {
-      throw new Error(okRes.error?.message || `Health check failed (${okRes.status})`)
-    }
-
-    kvKeyCount.value = kvRes.data?.keys?.length ?? 0
-    systemOk.value = okRes.data?.message === 'OK'
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : t('admin.dashboardLoadFailed')
+    const res = await adminRequest<{ keys: KvKey[] }>(
+      "/admin/kv/ls",
+      {},
+      props.auth,
+    );
+    kvCount.value = res.keys.length;
+    toast.success(`已加载 ${res.keys.length} 个 KV 键`);
+  } catch (e: unknown) {
+    toast.error(errorMessage(e, "加载 KV 列表失败"));
   } finally {
-    loading.value = false
+    loadingKeys.value = false;
   }
 }
 
-onMounted(fetchDashboard)
+async function initDatabase() {
+  loadingInit.value = true;
+  try {
+    const res = await adminRequest<InitResponse>(
+      "/admin/init",
+      { method: "POST" },
+      props.auth,
+    );
+    initMessage.value = res.message;
+    initStatus.value = "success";
+    toast.success(res.message);
+    await loadKvList();
+  } catch (e: unknown) {
+    initStatus.value = "error";
+    initMessage.value = errorMessage(e, "初始化数据库失败");
+    toast.error(initMessage.value);
+  } finally {
+    loadingInit.value = false;
+  }
+}
+
+onMounted(() => {
+  loadKvList();
+});
 </script>
 
-<style scoped>
-.dashboard-tab {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
+<template>
+  <div class="space-y-6">
+    <div class="flex items-center justify-between flex-wrap gap-3">
+      <h2 class="text-xl font-semibold text-[#e4e6eb]">控制台概览</h2>
+      <div class="flex gap-2">
+        <button
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-cute bg-primary text-white hover:bg-primary-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="loadingInit"
+          @click="initDatabase"
+        >
+          <Database class="w-4 h-4" />
+          {{ loadingInit ? "初始化中..." : "初始化数据库" }}
+        </button>
+        <button
+          class="inline-flex items-center gap-2 px-4 py-2 rounded-cute bg-surface border border-border-soft text-[#e4e6eb] hover:bg-surface-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="loadingKeys"
+          @click="loadKvList"
+        >
+          <RefreshCw class="w-4 h-4" :class="{ 'animate-spin': loadingKeys }" />
+          刷新 KV 列表
+        </button>
+      </div>
+    </div>
 
-.state-block {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 3rem 1.5rem;
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  color: var(--text-secondary);
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div class="bg-surface rounded-cute p-6 border border-border-soft shadow-soft">
+        <div class="flex items-center gap-2 text-muted text-sm mb-2">
+          <Zap class="w-4 h-4" />
+          <span>KV 键总数</span>
+        </div>
+        <div class="text-3xl font-semibold text-[#e4e6eb]">
+          {{ loadingKeys ? "..." : kvCount }}
+        </div>
+      </div>
 
-.state-block :deep(.lucide) {
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--theme-color);
-}
+      <div class="bg-surface rounded-cute p-6 border border-border-soft shadow-soft">
+        <div class="flex items-center gap-2 text-muted text-sm mb-2">
+          <Database class="w-4 h-4" />
+          <span>数据库初始化状态</span>
+        </div>
+        <div v-if="loadingInit" class="text-lg text-muted">初始化中...</div>
+        <div v-else-if="initStatus === 'success'" class="text-lg text-primary">
+          已初始化
+        </div>
+        <div v-else-if="initStatus === 'error'" class="text-lg text-red-400">
+          出错
+        </div>
+        <div v-else class="text-lg text-muted">未知</div>
+      </div>
+    </div>
 
-.state-block--error {
-  border-color: var(--error-color);
-  color: var(--error-color);
-}
-
-.state-block--error :deep(.lucide) {
-  color: var(--error-color);
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 1.5rem;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.5rem;
-  background: var(--gradient-card);
-  border: var(--border-light);
-  border-radius: 1rem;
-  backdrop-filter: blur(20px);
-  box-shadow: var(--shadow-md);
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-2px);
-  border-color: rgba(255, 255, 255, 0.2);
-}
-
-.stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 48px;
-  height: 48px;
-  border-radius: 0.75rem;
-  font-size: 1.25rem;
-  flex-shrink: 0;
-}
-
-.stat-icon--blue {
-  background: rgba(59, 130, 246, 0.15);
-  color: #3b82f6;
-}
-
-.stat-icon--green {
-  background: rgba(16, 185, 129, 0.15);
-  color: var(--success-color);
-}
-
-.stat-icon--red {
-  background: rgba(239, 68, 68, 0.15);
-  color: var(--error-color);
-}
-
-.stat-body {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  min-width: 0;
-}
-
-.stat-label {
-  font-size: 0.85rem;
-  color: var(--text-secondary);
-}
-
-.stat-value {
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
-}
-
-.stat-value--ok {
-  color: var(--success-color);
-}
-
-.stat-value--err {
-  color: var(--error-color);
-}
-</style>
+    <div
+      v-if="initMessage"
+      class="bg-surface rounded-cute p-4 border border-border-soft"
+    >
+      <div class="text-xs text-muted mb-1 uppercase tracking-wide">响应消息</div>
+      <pre class="text-sm text-[#e4e6eb] whitespace-pre-wrap break-words font-sans">{{ initMessage }}</pre>
+    </div>
+  </div>
+</template>

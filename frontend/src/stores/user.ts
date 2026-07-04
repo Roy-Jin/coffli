@@ -1,41 +1,71 @@
 import { defineStore } from "pinia";
-import type { User } from "@/api";
+import { ref, computed } from "vue";
+import type { User } from "@/types/api";
+import { ApiError } from "@/api/client";
+import { getMe, logout as authLogout } from "@/api/auth";
 
-interface UserState {
-  user: User | null;
-  isAuthenticated: boolean;
-}
+export const useUserStore = defineStore(
+  "user",
+  () => {
+    const user = ref<User | null>(null);
+    const loading = ref(false);
 
-export const useUserStore = defineStore("user", {
-  state: (): UserState => ({
-    user: null,
-    isAuthenticated: false,
-  }),
+    const isLoggedIn = computed(() => user.value !== null);
 
-  getters: {
-    getUser: (state) => state.user,
-    isLoggedIn: (state) => state.isAuthenticated,
-    getUsername: (state) => state.user?.github_login,
-    getDisplayName: (state) => state.user?.display_name || state.user?.github_login,
-    getAvatar: (state) => state.user?.avatar_url,
-    getRole: (state) => state.user?.role,
-    isAdmin: (state) => state.user?.role === "admin",
+    const displayName = computed(() => {
+      if (!user.value) return "";
+      return user.value.display_name || user.value.github_login;
+    });
+
+    const isAdmin = computed(() => user.value?.role === "admin");
+
+    async function fetchUser() {
+      loading.value = true;
+      try {
+        const res = await getMe();
+        user.value = res.user;
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          user.value = null;
+        }
+        throw err;
+      } finally {
+        loading.value = false;
+      }
+    }
+
+    function setUser(u: User) {
+      user.value = u;
+    }
+
+    function clearUser() {
+      user.value = null;
+    }
+
+    async function logout() {
+      try {
+        await authLogout();
+      } finally {
+        clearUser();
+      }
+    }
+
+    return {
+      user,
+      loading,
+      isLoggedIn,
+      displayName,
+      isAdmin,
+      fetchUser,
+      setUser,
+      clearUser,
+      logout,
+    };
   },
-
-  actions: {
-    setUser(user: User) {
-      this.user = user;
-      this.isAuthenticated = true;
+  {
+    persist: {
+      key: "coffli-user",
+      pick: ["user"],
     },
-
-    clearAuth() {
-      this.user = null;
-      this.isAuthenticated = false;
-    },
   },
-
-  persist: {
-    key: "coffli-user",
-    storage: localStorage,
-  },
-});
+);

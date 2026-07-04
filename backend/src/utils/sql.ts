@@ -1,4 +1,14 @@
-import type { Comment, Post, Session, Tag, User } from "@/types/sql";
+import type {
+    Author,
+    Comment,
+    CommentWithAuthor,
+    GuestbookMessage,
+    GuestbookMessageWithAuthor,
+    Post,
+    Session,
+    Tag,
+    User,
+} from "@/types/sql";
 import bcrypt from "bcryptjs";
 
 // ==========================================
@@ -78,10 +88,25 @@ export const CREATE_TABLE_SQL: string[] = [
         FOREIGN KEY (parent_id) REFERENCES comments(id) ON DELETE CASCADE
     )`,
     `CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id)`,
+    `CREATE TABLE IF NOT EXISTS guestbook (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        owner_id INTEGER NOT NULL,
+        author_id INTEGER NOT NULL,
+        parent_id INTEGER,
+        content TEXT NOT NULL,
+        is_approved BOOLEAN DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now')),
+        updated_at TEXT DEFAULT (datetime('now')),
+        FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE,
+        FOREIGN KEY (parent_id) REFERENCES guestbook(id) ON DELETE CASCADE
+    )`,
+    `CREATE INDEX IF NOT EXISTS idx_guestbook_owner ON guestbook(owner_id)`,
 ];
 
 export const DROP_TABLE_SQL: string[] = [
     `DROP TABLE IF EXISTS post_tags`,
+    `DROP TABLE IF EXISTS guestbook`,
     `DROP TABLE IF EXISTS comments`,
     `DROP TABLE IF EXISTS posts`,
     `DROP TABLE IF EXISTS tags`,
@@ -302,27 +327,72 @@ export async function deleteExpiredSessions(D1: D1Database): Promise<void> {
 // Post Operations
 // ==========================================
 
+function mapAuthor(row: Record<string, unknown>): Author {
+    return {
+        id: row.author_user_id as number,
+        github_login: row.github_login as string,
+        display_name: (row.author_display_name as string | null) ?? null,
+        avatar_url: (row.author_avatar_url as string | null) ?? null,
+    };
+}
+
 export async function getPosts(D1: D1Database, options: {
     status?: "draft" | "published" | "archived";
     limit?: number;
     offset?: number;
-}): Promise<Post[]> {
-    const { status = "published", limit = 10, offset = 0 } = options;
-    return await D1.prepare(`
-    SELECT * FROM posts 
-    WHERE status = ? 
-    ORDER BY is_pinned DESC, published_at DESC 
+    author_id?: number;
+}): Promise<(Post & { author: Author })[]> {
+    const {
+        status = "published",
+        limit = 10,
+        offset = 0,
+        author_id,
+    } = options;
+    const where: string[] = ["p.status = ?"];
+    const binds: unknown[] = [status];
+    if (author_id !== undefined) {
+        where.push("p.author_id = ?");
+        binds.push(author_id);
+    }
+    const { results } = await D1.prepare(`
+    SELECT
+      p.*,
+      u.id AS author_user_id,
+      u.github_login,
+      u.display_name AS author_display_name,
+      u.avatar_url AS author_avatar_url
+    FROM posts p
+    JOIN users u ON p.author_id = u.id
+    WHERE ${where.join(" AND ")}
+    ORDER BY p.is_pinned DESC, p.published_at DESC
     LIMIT ? OFFSET ?
-  `).bind(status, limit, offset).all<Post>().then((r) => r.results);
+  `).bind(...binds, limit, offset).all<Record<string, unknown>>();
+    return results.map((row) => ({
+        ...(row as unknown as Post),
+        author: mapAuthor(row),
+    }));
 }
 
 export async function getPostBySlug(
     D1: D1Database,
     slug: string,
-): Promise<Post | null> {
-    return await D1.prepare("SELECT * FROM posts WHERE slug = ?")
-        .bind(slug)
-        .first<Post>() || null;
+): Promise<(Post & { author: Author }) | null> {
+    const row = await D1.prepare(`
+    SELECT
+      p.*,
+      u.id AS author_user_id,
+      u.github_login,
+      u.display_name AS author_display_name,
+      u.avatar_url AS author_avatar_url
+    FROM posts p
+    JOIN users u ON p.author_id = u.id
+    WHERE p.slug = ?
+  `).bind(slug).first<Record<string, unknown>>();
+    if (!row) return null;
+    return {
+        ...(row as unknown as Post),
+        author: mapAuthor(row),
+    };
 }
 
 export async function getPostById(
@@ -469,38 +539,37 @@ export async function attachTagsToPost(
 export async function getCommentsByPostId(
     D1: D1Database,
     postId: number,
-): Promise<
-    (Comment & {
-        user: Pick<User, "github_login" | "avatar_url" | "display_name">;
-    })[]
-> {
+): Promise<CommentWithAuthor[]> {
     const { results } = await D1.prepare(`
-    SELECT 
-      c.*, 
-      u.github_login, 
-      u.avatar_url, 
-      u.display_name 
+    SELECT
+      c.*,
+      u.id AS author_user_id,
+      u.github_login,
+      u.display_name AS author_display_name,
+      u.avatar_url AS author_avatar_url
     FROM comments c
     JOIN users u ON c.user_id = u.id
-    WHERE c.post_id = ?
+    WHERE c.post_id = ? AND c.is_approved = 1
     ORDER BY c.created_at ASC
-  `).bind(postId).all();
+  `).bind(postId).all<Record<string, unknown>>();
 
-    return results.map((row: any) => ({
-        id: row.id,
-        post_id: row.post_id,
-        user_id: row.user_id,
-        parent_id: row.parent_id,
-        content: row.content,
-        is_approved: row.is_approved,
-        created_at: row.created_at,
-        updated_at: row.updated_at,
-        user: {
-            github_login: row.github_login,
-            avatar_url: row.avatar_url,
-            display_name: row.display_name,
-        },
+    return results.map((row) => ({
+        ...(row as unknown as Comment),
+        author: mapAuthor(row),
     }));
+}
+
+export async function getCommentById(
+    D1: D1Database,
+    id: number,
+): Promise<Comment | null> {
+    return await D1.prepare("SELECT * FROM comments WHERE id = ?")
+        .bind(id)
+        .first<Comment>() || null;
+}
+
+export async function deleteComment(D1: D1Database, id: number): Promise<void> {
+    await D1.prepare("DELETE FROM comments WHERE id = ?").bind(id).run();
 }
 
 export async function createComment(
@@ -520,5 +589,68 @@ export async function createComment(
             commentData.user_id,
             commentData.content,
             commentData.parent_id || null,
+        ).run();
+}
+
+// ==========================================
+// Guestbook Operations
+// ==========================================
+
+export async function getGuestbookByOwnerId(
+    D1: D1Database,
+    ownerId: number,
+): Promise<GuestbookMessageWithAuthor[]> {
+    const { results } = await D1.prepare(`
+    SELECT
+      g.*,
+      u.id AS author_user_id,
+      u.github_login,
+      u.display_name AS author_display_name,
+      u.avatar_url AS author_avatar_url
+    FROM guestbook g
+    JOIN users u ON g.author_id = u.id
+    WHERE g.owner_id = ? AND g.is_approved = 1
+    ORDER BY g.created_at ASC
+  `).bind(ownerId).all<Record<string, unknown>>();
+
+    return results.map((row) => ({
+        ...(row as unknown as GuestbookMessage),
+        author: mapAuthor(row),
+    }));
+}
+
+export async function getGuestbookById(
+    D1: D1Database,
+    id: number,
+): Promise<GuestbookMessage | null> {
+    return await D1.prepare("SELECT * FROM guestbook WHERE id = ?")
+        .bind(id)
+        .first<GuestbookMessage>() || null;
+}
+
+export async function deleteGuestbookMessage(
+    D1: D1Database,
+    id: number,
+): Promise<void> {
+    await D1.prepare("DELETE FROM guestbook WHERE id = ?").bind(id).run();
+}
+
+export async function createGuestbookMessage(
+    D1: D1Database,
+    data: {
+        owner_id: number;
+        author_id: number;
+        content: string;
+        parent_id?: number;
+    },
+): Promise<void> {
+    await D1.prepare(`
+    INSERT INTO guestbook (owner_id, author_id, content, parent_id)
+    VALUES (?, ?, ?, ?)
+  `).bind(
+            data.owner_id,
+            data.author_id,
+            data.content,
+            data.parent_id || null,
         ).run();
 }
