@@ -69,6 +69,17 @@ posts.get("/:slug", async (c) => {
         );
     }
 
+    // Only the author or admins can view draft/archived posts
+    if (post.status !== "published") {
+        const currentUser = getCurrentUser(c);
+        if (!currentUser || (currentUser.id !== post.author_id && currentUser.role !== "admin")) {
+            return c.json(
+                createError(ReasonPhrases.NOT_FOUND, "Post not found"),
+                404,
+            );
+        }
+    }
+
     await incrementViewCount(c.env.D1, post.id);
     const tags = await getTagsByPostId(c.env.D1, post.id);
 

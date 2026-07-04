@@ -121,7 +121,7 @@ onMounted(() => {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 text-sm">
             <router-link
-              :to="`/${msg.author.github_login}`"
+              :to="`/user/${msg.author.github_login}`"
               class="font-medium text-[#e4e6eb] hover:text-primary transition-colors"
             >
               {{ msg.author.display_name || msg.author.github_login }}
@@ -180,7 +180,7 @@ onMounted(() => {
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 text-sm">
                   <router-link
-                    :to="`/${reply.author.github_login}`"
+                    :to="`/user/${reply.author.github_login}`"
                     class="font-medium text-[#e4e6eb] hover:text-primary transition-colors"
                   >
                     {{ reply.author.display_name || reply.author.github_login }}

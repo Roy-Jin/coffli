@@ -32,7 +32,11 @@ function onError() {
 
 <template>
   <div
-    :class="['flex items-center justify-center overflow-hidden bg-gradient-to-br from-primary to-primary-soft text-white font-display font-semibold shrink-0', props.rounded]"
+    :class="[
+      'flex items-center justify-center overflow-hidden shrink-0',
+      showImage ? 'bg-transparent' : 'bg-gradient-to-br from-primary to-primary-soft text-white font-display font-semibold',
+      props.rounded,
+    ]"
     :style="{ width: `${size}px`, height: `${size}px`, fontSize: `${size * 0.42}px` }"
   >
     <img

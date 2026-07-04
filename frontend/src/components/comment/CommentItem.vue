@@ -66,7 +66,7 @@ function handleDelete() {
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2 text-sm">
         <router-link
-          :to="`/${comment.author.github_login}`"
+          :to="`/user/${comment.author.github_login}`"
           class="font-medium text-[#e4e6eb] hover:text-primary transition-colors"
         >
           {{ comment.author.display_name || comment.author.github_login }}

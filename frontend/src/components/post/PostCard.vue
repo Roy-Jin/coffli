@@ -12,8 +12,8 @@ const MAX_TAGS = 3;
 const visibleTags = computed(() => props.post.tags.slice(0, MAX_TAGS));
 const overflowCount = computed(() => Math.max(0, props.post.tags.length - MAX_TAGS));
 
-const postLink = computed(() => `/${props.post.author.github_login}/${props.post.slug}`);
-const authorLink = computed(() => `/${props.post.author.github_login}`);
+const postLink = computed(() => `/post/${props.post.author.github_login}/${props.post.slug}`);
+const authorLink = computed(() => `/user/${props.post.author.github_login}`);
 const authorName = computed(
   () => props.post.author.display_name || props.post.author.github_login,
 );
@@ -24,13 +24,26 @@ const timeAgo = computed(() => formatRelative(props.post.published_at ?? props.p
   <article
     class="relative flex flex-col bg-surface rounded-cute-lg p-5 shadow-soft hover:shadow-soft-lg transition-shadow border border-border-soft"
   >
-    <span
-      v-if="post.is_pinned"
-      class="absolute top-3 right-3 z-10 flex items-center gap-1 bg-primary/20 text-primary px-2 py-1 rounded-cute-sm text-xs"
-    >
-      <Pin :size="12" />
-      置顶
-    </span>
+    <div class="absolute top-3 right-3 z-10 flex items-center gap-1.5">
+      <span
+        v-if="post.status !== 'published'"
+        :class="[
+          'flex items-center gap-1 px-2 py-1 rounded-cute-sm text-xs',
+          post.status === 'draft'
+            ? 'bg-yellow-500/20 text-yellow-400'
+            : 'bg-gray-500/20 text-gray-400',
+        ]"
+      >
+        {{ post.status === 'draft' ? '草稿' : '已归档' }}
+      </span>
+      <span
+        v-if="post.is_pinned"
+        class="flex items-center gap-1 bg-primary/20 text-primary px-2 py-1 rounded-cute-sm text-xs"
+      >
+        <Pin :size="12" />
+        置顶
+      </span>
+    </div>
 
     <img
       v-if="post.cover_image_url"

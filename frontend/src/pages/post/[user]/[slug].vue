@@ -76,7 +76,7 @@ async function onDelete() {
   try {
     await deletePost(slug.value);
     toast.success("文章已删除");
-    router.push(`/${post.value.author.github_login}`);
+    router.push(`/user/${post.value.author.github_login}`);
   } catch (err) {
     toast.error(err instanceof Error ? err.message : "删除失败");
   } finally {
@@ -128,7 +128,7 @@ onMounted(loadPost);
 
             <div class="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-sm text-muted">
               <RouterLink
-                :to="`/${post.author.github_login}`"
+                :to="`/user/${post.author.github_login}`"
                 class="flex items-center gap-2 hover:text-primary transition-colors"
               >
                 <UserAvatar
@@ -168,7 +168,7 @@ onMounted(loadPost);
             class="flex items-center gap-3 mt-6 pt-6 border-t border-border-soft"
           >
             <RouterLink
-              :to="`/${post.author.github_login}/${post.slug}/edit`"
+              :to="`/post/${post.author.github_login}/${post.slug}/edit`"
               class="inline-flex items-center gap-1.5 px-4 py-2 rounded-cute-sm bg-surface hover:bg-surface-hover text-[#e4e6eb] text-sm border border-border-soft transition-colors"
             >
               <Edit :size="14" />

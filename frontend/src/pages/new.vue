@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useRouter } from "vue-router";
-import { Save, Send, ArrowLeft } from "@lucide/vue";
+import { Save, ArrowLeft } from "@lucide/vue";
 import { createPost } from "@/api/posts";
 import { useUserStore } from "@/stores/user";
 import { useToast } from "@/composables/useToast";
@@ -21,8 +21,6 @@ const tagsInput = ref("");
 const status = ref<"draft" | "published">("draft");
 const slugManuallyEdited = ref(false);
 const submitting = ref(false);
-
-const slugPrefix = computed(() => `/${userStore.user?.github_login ?? ""}/`);
 
 const tags = computed(() =>
   tagsInput.value
@@ -60,38 +58,29 @@ function validate(): string | null {
   return null;
 }
 
-async function submit(target: "draft" | "published") {
+async function save() {
   const err = validate();
   if (err) {
     toast.error(err);
     return;
   }
   submitting.value = true;
-  status.value = target;
   try {
     const res = await createPost({
       slug: slug.value,
       title: title.value.trim(),
       content: content.value,
       summary: summary.value.trim() || undefined,
-      status: target,
+      status: status.value,
       tags: tags.value.length ? tags.value : undefined,
     });
-    toast.success(target === "published" ? "文章已发布" : "草稿已保存");
-    router.push(`/${res.post.author.github_login}/${res.post.slug}`);
+    toast.success(status.value === "published" ? "文章已发布" : "草稿已保存");
+    router.push(`/post/${res.post.author.github_login}/${res.post.slug}`);
   } catch (err) {
     toast.error(err instanceof Error ? err.message : "保存失败");
   } finally {
     submitting.value = false;
   }
-}
-
-function saveDraft() {
-  submit("draft");
-}
-
-function publish() {
-  submit("published");
 }
 </script>
 
@@ -111,7 +100,7 @@ function publish() {
         <h1 class="font-display text-2xl font-semibold text-[#e4e6eb]">写文章</h1>
       </div>
 
-      <form class="space-y-6" @submit.prevent="publish">
+      <form class="space-y-6" @submit.prevent="save">
         <!-- Title -->
         <div>
           <label class="block text-sm text-muted mb-2">标题</label>
@@ -123,23 +112,10 @@ function publish() {
           />
         </div>
 
-        <!-- Slug -->
+        <!-- Content -->
         <div>
-          <label class="block text-sm text-muted mb-2">链接地址</label>
-          <div
-            class="flex items-stretch bg-surface rounded-cute border border-border-soft focus-within:border-primary overflow-hidden"
-          >
-            <span class="flex items-center px-3 text-muted text-sm border-r border-border-soft whitespace-nowrap">
-              {{ slugPrefix }}
-            </span>
-            <input
-              v-model="slug"
-              type="text"
-              placeholder="my-first-post"
-              class="flex-1 min-w-0 bg-transparent text-[#e4e6eb] px-3 py-3 focus:outline-none"
-              @input="onSlugInput"
-            />
-          </div>
+          <label class="block text-sm text-muted mb-2">正文</label>
+          <MarkdownEditor v-model="content" placeholder="开始写作..." />
         </div>
 
         <!-- Summary -->
@@ -149,7 +125,7 @@ function publish() {
           </label>
           <textarea
             v-model="summary"
-            rows="2"
+            rows="3"
             placeholder="一句话简介..."
             class="w-full bg-surface text-[#e4e6eb] text-sm px-4 py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none resize-none"
           ></textarea>
@@ -168,15 +144,27 @@ function publish() {
           />
         </div>
 
-        <!-- Content -->
+        <!-- Slug -->
         <div>
-          <label class="block text-sm text-muted mb-2">正文</label>
-          <MarkdownEditor v-model="content" placeholder="开始写作..." />
+          <label class="block text-sm text-muted mb-2">链接地址</label>
+          <div
+            class="flex items-stretch bg-surface rounded-cute border border-border-soft focus-within:border-primary overflow-hidden"
+          >
+            <span class="flex items-center px-3 text-muted text-sm border-r border-border-soft whitespace-nowrap">
+              /post/{{ userStore.user?.github_login ?? "" }}/
+            </span>
+            <input
+              v-model="slug"
+              type="text"
+              placeholder="my-first-post"
+              class="flex-1 min-w-0 bg-transparent text-[#e4e6eb] px-3 py-3 focus:outline-none"
+              @input="onSlugInput"
+            />
+          </div>
         </div>
 
-        <!-- Status toggle -->
-        <div>
-          <label class="block text-sm text-muted mb-2">状态</label>
+        <!-- Status + Save -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-border-soft">
           <div class="inline-flex rounded-cute border border-border-soft bg-surface p-1">
             <button
               type="button"
@@ -199,26 +187,14 @@ function publish() {
               发布
             </button>
           </div>
-        </div>
 
-        <!-- Action buttons -->
-        <div class="flex items-center gap-3 pt-4 border-t border-border-soft">
-          <button
-            type="button"
-            :disabled="submitting"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-cute-sm bg-surface hover:bg-surface-hover text-[#e4e6eb] text-sm border border-border-soft transition-colors disabled:opacity-50"
-            @click="saveDraft"
-          >
-            <Save :size="14" />
-            保存草稿
-          </button>
           <button
             type="submit"
             :disabled="submitting"
-            class="inline-flex items-center gap-1.5 px-4 py-2 rounded-cute-sm bg-primary hover:bg-primary-hover text-white text-sm transition-colors disabled:opacity-50"
+            class="inline-flex items-center justify-center gap-1.5 px-6 py-2 rounded-cute-sm bg-primary hover:bg-primary-hover text-white text-sm transition-colors disabled:opacity-50"
           >
-            <Send :size="14" />
-            发布文章
+            <Save :size="14" />
+            {{ submitting ? "保存中..." : "保存" }}
           </button>
         </div>
       </form>
@@ -227,3 +203,9 @@ function publish() {
     <AppFooter />
   </div>
 </template>
+
+<route>
+{
+  "meta": { "requireAuth": true }
+}
+</route>

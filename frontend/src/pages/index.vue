@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { RouterLink } from "vue-router";
-import { Search, Plus } from "@lucide/vue";
+import { Plus } from "@lucide/vue";
 import AppHeader from "@/components/layout/AppHeader.vue";
 import AppFooter from "@/components/layout/AppFooter.vue";
 import PostCard from "@/components/post/PostCard.vue";
@@ -77,19 +77,6 @@ onMounted(() => {
           Coffli
         </h1>
         <p class="mt-3 text-base text-muted">为 GitHub 用户打造的博客社区</p>
-
-        <!-- Search (visual only) -->
-        <div class="relative max-w-md mx-auto mt-6">
-          <Search
-            :size="18"
-            class="absolute left-3 top-1/2 -translate-y-1/2 text-muted pointer-events-none"
-          />
-          <input
-            type="text"
-            placeholder="搜索文章..."
-            class="w-full pl-10 pr-4 py-2.5 rounded-cute bg-surface border border-border-soft text-sm text-[#e4e6eb] placeholder:text-muted focus:outline-none focus:border-primary transition-colors"
-          />
-        </div>
 
         <!-- Featured tags -->
         <div v-if="tags.length" class="flex flex-wrap justify-center gap-2 mt-6">

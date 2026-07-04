@@ -10,6 +10,7 @@ import type {
     User,
 } from "@/types/sql";
 import bcrypt from "bcryptjs";
+import { nowISO } from "@/utils/time";
 
 // ==========================================
 // SQL Schemas
@@ -172,15 +173,16 @@ export async function upsertUserFromGithub(
         bio?: string;
         email?: string;
     },
-): Promise<User> {
+) {
+    const now = nowISO();
     const query = `
-    INSERT INTO users (github_id, github_login, display_name, avatar_url, bio, email, last_login_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    INSERT INTO users (github_id, github_login, display_name, avatar_url, bio, email, created_at, last_login_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(github_id) DO UPDATE SET
       avatar_url = excluded.avatar_url,
       github_login = excluded.github_login,
       email = COALESCE(excluded.email, users.email),
-      last_login_at = datetime('now')
+      last_login_at = ?
     RETURNING *
   `;
     const result = await D1.prepare(query)
@@ -191,6 +193,9 @@ export async function upsertUserFromGithub(
             userData.avatar_url,
             userData.bio || "",
             userData.email || null,
+            now,
+            now,
+            now,
         )
         .first<User>();
 
@@ -250,11 +255,11 @@ export async function loginUserWithUsernameAndPassword(
     const isValid = await verifyPassword(password, user.password_hash);
 
     if (isValid) {
-        // 登录成功，更新最后登录时间
+        // Update last login time on successful password login
         await D1.prepare(
-            "UPDATE users SET last_login_at = datetime('now') WHERE id = ?",
+            "UPDATE users SET last_login_at = ? WHERE id = ?",
         )
-            .bind(user.id)
+            .bind(nowISO(), user.id)
             .run();
         return user;
     }
@@ -413,7 +418,7 @@ export async function createPost(D1: D1Database, postData: {
     status?: "draft" | "published";
     published_at?: string;
 }): Promise<void> {
-    const now = new Date().toISOString();
+    const now = nowISO();
     await D1.prepare(`
     INSERT INTO posts (author_id, slug, title, content, summary, status, published_at, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -460,7 +465,7 @@ export async function updatePost(
         values.push(updates.is_pinned);
     }
     fields.push("updated_at = ?");
-    values.push(new Date().toISOString());
+    values.push(nowISO());
     values.push(id);
 
     await D1.prepare(`UPDATE posts SET ${fields.join(", ")} WHERE id = ?`)
@@ -581,14 +586,17 @@ export async function createComment(
         parent_id?: number;
     },
 ): Promise<void> {
+    const now = nowISO();
     await D1.prepare(`
-    INSERT INTO comments (post_id, user_id, content, parent_id)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO comments (post_id, user_id, content, parent_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
   `).bind(
             commentData.post_id,
             commentData.user_id,
             commentData.content,
             commentData.parent_id || null,
+            now,
+            now,
         ).run();
 }
 
@@ -644,13 +652,16 @@ export async function createGuestbookMessage(
         parent_id?: number;
     },
 ): Promise<void> {
+    const now = nowISO();
     await D1.prepare(`
-    INSERT INTO guestbook (owner_id, author_id, content, parent_id)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO guestbook (owner_id, author_id, content, parent_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?)
   `).bind(
             data.owner_id,
             data.author_id,
             data.content,
             data.parent_id || null,
+            now,
+            now,
         ).run();
 }

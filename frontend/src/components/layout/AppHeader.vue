@@ -13,13 +13,19 @@ import {
 } from "@lucide/vue";
 import { useUserStore } from "@/stores/user";
 import UserAvatar from "@/components/common/UserAvatar.vue";
+import SearchModal from "@/components/common/SearchModal.vue";
 
 const userStore = useUserStore();
 const router = useRouter();
 
 const menuOpen = ref(false);
 const mobileMenuOpen = ref(false);
+const searchOpen = ref(false);
 const dropdownRef = ref<HTMLElement | null>(null);
+
+function openSearch() {
+  searchOpen.value = true;
+}
 
 function toggleMenu() {
   menuOpen.value = !menuOpen.value;
@@ -89,13 +95,16 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
 
         <!-- Right side -->
         <div class="flex items-center gap-2 ml-auto">
-          <!-- Search placeholder (desktop) -->
-          <div
-            class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-cute-sm bg-surface-hover/60 border border-border-soft text-muted text-sm cursor-pointer"
+          <!-- Search trigger (desktop) -->
+          <button
+            type="button"
+            class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-cute-sm bg-surface-hover/60 border border-border-soft text-muted text-sm hover:bg-surface-hover transition-colors"
+            @click="openSearch"
           >
             <Search :size="14" />
             <span>搜索</span>
-          </div>
+            <kbd class="hidden lg:inline-block px-1.5 py-0.5 rounded bg-surface text-xs">Ctrl K</kbd>
+          </button>
 
           <!-- Logged in: avatar dropdown -->
           <div v-if="userStore.isLoggedIn" ref="dropdownRef" class="relative">
@@ -123,7 +132,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
                 class="absolute right-0 mt-2 w-44 rounded-cute border border-border-soft bg-surface/95 backdrop-blur-md shadow-soft-lg py-1 z-50"
               >
                 <RouterLink
-                  :to="`/${userStore.user?.github_login}`"
+                  :to="`/user/${userStore.user?.github_login}`"
                   class="flex items-center gap-2 px-3 py-2 text-sm text-[#e4e6eb] hover:bg-surface-hover transition-colors"
                   @click="closeMenu"
                 >
@@ -179,6 +188,13 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
           v-if="mobileMenuOpen"
           class="md:hidden flex flex-col gap-1 py-3 border-t border-border-soft"
         >
+          <button
+            type="button"
+            class="px-3 py-2 rounded-cute-sm text-sm text-left text-[#e4e6eb] hover:bg-surface-hover transition-colors"
+            @click="openSearch(); closeMobile()"
+          >
+            搜索
+          </button>
           <RouterLink
             to="/"
             class="px-3 py-2 rounded-cute-sm text-sm text-[#e4e6eb] hover:bg-surface-hover transition-colors"
@@ -198,7 +214,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
           </RouterLink>
           <RouterLink
             v-if="userStore.isLoggedIn"
-            :to="`/${userStore.user?.github_login}`"
+            :to="`/user/${userStore.user?.github_login}`"
             class="px-3 py-2 rounded-cute-sm text-sm text-[#e4e6eb] hover:bg-surface-hover transition-colors"
             @click="closeMobile"
           >
@@ -224,4 +240,6 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
       </Transition>
     </div>
   </header>
+
+  <SearchModal v-model="searchOpen" />
 </template>

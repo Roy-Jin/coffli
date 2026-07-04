@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from "vue";
 import { useRoute } from "vue-router";
-import { Edit } from "@lucide/vue";
+import { Edit, Mail, ChevronDown, ChevronUp } from "@lucide/vue";
 import { getUser } from "@/api/users";
 import { getPosts } from "@/api/posts";
 import { useUserStore } from "@/stores/user";
@@ -14,6 +14,7 @@ import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
 import PostCard from "@/components/post/PostCard.vue";
 import GuestbookList from "@/components/guestbook/GuestbookList.vue";
+import MarkdownRenderer from "@/components/markdown/MarkdownRenderer.vue";
 import GithubIcon from "@/components/common/GithubIcon.vue";
 
 const route = useRoute();
@@ -29,7 +30,7 @@ const loading = ref(false);
 const notFound = ref(false);
 const posts = ref<Post[]>([]);
 const postsLoading = ref(false);
-const activeTab = ref<"posts" | "guestbook">("posts");
+const showAllPosts = ref(false);
 
 const isOwnProfile = computed(
   () => !!userStore.user && userStore.user.github_login === username.value,
@@ -39,14 +40,30 @@ const displayName = computed(
   () => user.value?.display_name || user.value?.github_login || "",
 );
 
+const sortedPosts = computed(() => {
+  return [...posts.value].sort((a, b) => {
+    if (a.is_pinned !== b.is_pinned) return b.is_pinned - a.is_pinned;
+    const aTime = new Date(a.published_at ?? a.created_at).getTime();
+    const bTime = new Date(b.published_at ?? b.created_at).getTime();
+    return bTime - aTime;
+  });
+});
+
+const visiblePosts = computed(() => {
+  if (showAllPosts.value) return sortedPosts.value;
+  return sortedPosts.value.slice(0, 4);
+});
+
+const hasMorePosts = computed(() => sortedPosts.value.length > 4);
+
 async function loadPosts() {
   if (!user.value) return;
   postsLoading.value = true;
   try {
     const res = await getPosts({
       author: user.value.id,
-      status: "published",
-      limit: 20,
+      status: isOwnProfile.value ? undefined : "published",
+      limit: 100,
     });
     posts.value = res.posts;
   } catch {
@@ -62,7 +79,7 @@ async function loadUser() {
   notFound.value = false;
   user.value = null;
   posts.value = [];
-  activeTab.value = "posts";
+  showAllPosts.value = false;
   try {
     const res = await getUser(username.value);
     user.value = res.user;
@@ -118,21 +135,21 @@ watch(username, () => loadUser(), { immediate: true });
                 <h1 class="font-display text-2xl font-semibold text-[#e4e6eb]">
                   {{ displayName }}
                 </h1>
-                <a
-                  :href="`https://github.com/${user.github_login}`"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="inline-flex items-center gap-1.5 mt-1.5 text-sm text-muted hover:text-primary transition-colors"
-                >
-                  <GithubIcon :size="14" />
-                  {{ user.github_login }}
-                </a>
-                <p
-                  v-if="user.bio"
-                  class="mt-3 text-sm text-[#e4e6eb] leading-relaxed"
-                >
-                  {{ user.bio }}
-                </p>
+                <div class="flex flex-wrap items-center gap-3 mt-2 text-sm text-muted">
+                  <a
+                    :href="`https://github.com/${user.github_login}`"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    class="inline-flex items-center gap-1.5 hover:text-primary transition-colors"
+                  >
+                    <GithubIcon :size="14" />
+                    {{ user.github_login }}
+                  </a>
+                  <span v-if="user.email" class="inline-flex items-center gap-1.5">
+                    <Mail :size="14" />
+                    {{ user.email }}
+                  </span>
+                </div>
                 <p class="mt-3 text-xs text-muted">
                   加入于 {{ formatDate(user.created_at) }}
                 </p>
@@ -148,61 +165,63 @@ watch(username, () => loadUser(), { immediate: true });
             </div>
           </section>
 
-          <!-- Tab navigation -->
-          <nav class="flex gap-2">
-            <button
-              type="button"
-              :class="[
-                'px-4 py-1.5 rounded-cute-sm text-sm transition-colors',
-                activeTab === 'posts'
-                  ? 'bg-primary text-white'
-                  : 'bg-surface text-[#e4e6eb] hover:bg-surface-hover border border-border-soft',
-              ]"
-              @click="activeTab = 'posts'"
-            >
-              文章
-            </button>
-            <button
-              type="button"
-              :class="[
-                'px-4 py-1.5 rounded-cute-sm text-sm transition-colors',
-                activeTab === 'guestbook'
-                  ? 'bg-primary text-white'
-                  : 'bg-surface text-[#e4e6eb] hover:bg-surface-hover border border-border-soft',
-              ]"
-              @click="activeTab = 'guestbook'"
-            >
-              留言板
-            </button>
-          </nav>
+          <!-- Bio module -->
+          <section
+            v-if="user.bio"
+            class="bg-surface rounded-cute-lg p-6 border border-border-soft"
+          >
+            <h2 class="text-lg font-semibold text-[#e4e6eb] mb-4">个人简介</h2>
+            <div class="text-sm text-[#e4e6eb] leading-relaxed">
+              <MarkdownRenderer :content="user.bio" />
+            </div>
+          </section>
 
-          <!-- Tab content -->
-          <div>
-            <!-- Posts tab -->
-            <div v-if="activeTab === 'posts'">
-              <div v-if="postsLoading" class="flex justify-center py-12">
-                <LoadingSpinner />
-              </div>
-              <EmptyState
-                v-else-if="posts.length === 0"
-                title="还没有发布文章"
-                description="此用户暂未发布任何文章"
-                icon="FileText"
-              />
-              <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Posts module -->
+          <section class="bg-surface rounded-cute-lg p-6 border border-border-soft">
+            <h2 class="text-lg font-semibold text-[#e4e6eb] mb-4">
+              文章
+              <span class="ml-2 text-xs font-normal text-muted">({{ posts.length }})</span>
+            </h2>
+
+            <div v-if="postsLoading" class="flex justify-center py-12">
+              <LoadingSpinner />
+            </div>
+            <EmptyState
+              v-else-if="posts.length === 0"
+              title="还没有文章"
+              description="此用户暂未发布任何文章"
+              icon="FileText"
+            />
+            <div v-else>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <PostCard
-                  v-for="post in posts"
+                  v-for="post in visiblePosts"
                   :key="post.id"
                   :post="post"
                 />
               </div>
+              <button
+                v-if="hasMorePosts"
+                type="button"
+                class="mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-cute-sm text-sm text-muted hover:text-[#e4e6eb] hover:bg-surface-hover transition-colors"
+                @click="showAllPosts = !showAllPosts"
+              >
+                <template v-if="showAllPosts">
+                  <ChevronUp :size="16" />
+                  收起文章
+                </template>
+                <template v-else>
+                  <ChevronDown :size="16" />
+                  更多文章 ({{ sortedPosts.length - 4 }})
+                </template>
+              </button>
             </div>
+          </section>
 
-            <!-- Guestbook tab -->
-            <div v-else>
-              <GuestbookList :username="username" />
-            </div>
-          </div>
+          <!-- Guestbook module -->
+          <section class="bg-surface rounded-cute-lg p-6 border border-border-soft">
+            <GuestbookList :username="username" />
+          </section>
         </div>
       </div>
     </main>
