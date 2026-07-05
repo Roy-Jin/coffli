@@ -88,8 +88,8 @@ async function save() {
   <div class="min-h-screen flex flex-col">
     <AppHeader />
 
-    <main class="flex-1 w-full max-w-4xl mx-auto p-6">
-      <div class="flex items-center gap-3 mb-6">
+    <main class="flex-1 w-full max-w-4xl mx-auto p-3 sm:p-6">
+      <div class="flex items-center gap-3 mb-4 sm:mb-6">
         <button
           type="button"
           class="text-muted hover:text-primary transition-colors"
@@ -100,7 +100,7 @@ async function save() {
         <h1 class="font-display text-2xl font-semibold text-[#e4e6eb]">写文章</h1>
       </div>
 
-      <form class="space-y-6" @submit.prevent="save">
+      <form class="space-y-4 sm:space-y-6" @submit.prevent="save">
         <!-- Title -->
         <div>
           <label class="block text-sm text-muted mb-2">标题</label>
@@ -108,7 +108,7 @@ async function save() {
             v-model="title"
             type="text"
             placeholder="给你的文章起个标题"
-            class="w-full bg-surface text-[#e4e6eb] font-display text-xl font-semibold px-4 py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none"
+            class="w-full bg-surface text-[#e4e6eb] font-display text-xl font-semibold px-3 py-2.5 sm:px-4 sm:py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -127,7 +127,7 @@ async function save() {
             v-model="summary"
             rows="3"
             placeholder="一句话简介..."
-            class="w-full bg-surface text-[#e4e6eb] text-sm px-4 py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none resize-none"
+            class="w-full bg-surface text-[#e4e6eb] text-sm px-3 py-2.5 sm:px-4 sm:py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none resize-none"
           ></textarea>
         </div>
 
@@ -140,7 +140,7 @@ async function save() {
             v-model="tagsInput"
             type="text"
             placeholder="vue, typescript, 前端"
-            class="w-full bg-surface text-[#e4e6eb] text-sm px-4 py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none"
+            class="w-full bg-surface text-[#e4e6eb] text-sm px-3 py-2.5 sm:px-4 sm:py-3 rounded-cute border border-border-soft focus:border-primary focus:outline-none"
           />
         </div>
 
@@ -164,7 +164,7 @@ async function save() {
         </div>
 
         <!-- Status + Save -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-4 border-t border-border-soft">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pt-3 sm:pt-4 border-t border-border-soft">
           <div class="inline-flex rounded-cute border border-border-soft bg-surface p-1">
             <button
               type="button"

@@ -37,9 +37,9 @@ async function confirmDelete() {
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="space-y-6 sm:space-y-8">
     <section>
-      <h2 class="text-lg font-semibold text-[#e4e6eb] mb-4">GitHub 账号</h2>
+      <h2 class="text-lg font-semibold text-[#e4e6eb] mb-3 sm:mb-4">GitHub 账号</h2>
       <div class="flex items-center gap-3 mb-4">
         <UserAvatar
           :src="userStore.user?.avatar_url || null"
@@ -65,13 +65,13 @@ async function confirmDelete() {
         class="inline-flex items-center gap-1.5 px-4 py-2 rounded-cute-sm bg-surface-hover text-[#e4e6eb] text-sm hover:bg-border-soft transition-colors"
         @click="relinkGithub"
       >
-        <Github :size="14" />
+        <GithubIcon :size="14" />
         使用 GitHub 重新登录
       </button>
     </section>
 
-    <section class="pt-6 border-t border-border-soft">
-      <h2 class="flex items-center gap-2 text-lg font-semibold text-red-400 mb-4">
+    <section class="pt-4 sm:pt-6 border-t border-border-soft">
+      <h2 class="flex items-center gap-2 text-lg font-semibold text-red-400 mb-3 sm:mb-4">
         <AlertTriangle :size="18" />
         危险区域
       </h2>

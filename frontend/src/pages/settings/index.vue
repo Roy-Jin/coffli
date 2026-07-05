@@ -47,9 +47,9 @@ async function saveProfile() {
 
 <template>
   <div>
-    <h2 class="text-lg font-semibold text-[#e4e6eb] mb-4">个人资料</h2>
+    <h2 class="text-lg font-semibold text-[#e4e6eb] mb-3 sm:mb-4">个人资料</h2>
 
-    <div class="flex items-center gap-4 mb-6">
+    <div class="flex items-center gap-4 mb-4 sm:mb-6">
       <UserAvatar
         :src="userStore.user?.avatar_url || null"
         :name="userStore.user?.display_name || userStore.user?.github_login"
@@ -57,7 +57,7 @@ async function saveProfile() {
       />
       <div>
         <p class="text-sm text-[#e4e6eb]">
-          头像由 GitHub 自动同步，不可手动修改
+          同步于 GitHub 账号
         </p>
         <a
           :href="`https://github.com/${userStore.user?.github_login}`"
@@ -82,6 +82,7 @@ async function saveProfile() {
       <div>
         <label class="block text-xs text-muted mb-1">邮箱</label>
         <input
+          disabled
           v-model="email"
           type="email"
           placeholder="you@example.com"

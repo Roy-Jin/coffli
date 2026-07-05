@@ -43,7 +43,7 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #0f1419;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
@@ -77,6 +77,7 @@ button {
 
 input,
 textarea {
+  overflow: hidden;
   font-family: var(--font-sans);
 }
 
@@ -322,4 +323,44 @@ textarea {
 
 .katex-display > .katex {
   text-align: left;
+}
+
+@media (max-width: 640px) {
+  .prose-cute h1 {
+    font-size: 1.5rem;
+  }
+
+  .prose-cute h2 {
+    font-size: 1.25rem;
+  }
+
+  .prose-cute h3 {
+    font-size: 1.125rem;
+  }
+
+  .prose-cute p {
+    margin: 0.75em 0;
+  }
+
+  .prose-cute ul,
+  .prose-cute ol {
+    padding-left: 1.25em;
+  }
+
+  .prose-cute blockquote {
+    padding: 0.5em 0.75em;
+  }
+
+  .prose-cute pre {
+    padding: 0.75em 0.9em;
+  }
+
+  .prose-cute th,
+  .prose-cute td {
+    padding: 0.4em 0.6em;
+  }
+
+  .mermaid {
+    padding: 0.5em;
+  }
 }

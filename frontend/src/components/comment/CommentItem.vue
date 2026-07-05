@@ -57,7 +57,7 @@ function handleDelete() {
 </script>
 
 <template>
-  <div class="flex gap-3 py-4">
+  <div class="flex gap-2.5 sm:gap-3 py-3 sm:py-4">
     <UserAvatar
       :src="comment.author.avatar_url"
       :name="comment.author.github_login"
@@ -111,7 +111,7 @@ function handleDelete() {
 
       <div
         v-if="replies.length > 0"
-        class="mt-2 border-l border-border-soft pl-4 ml-1"
+        class="mt-2 border-l border-border-soft pl-3 ml-0.5 sm:pl-4 sm:ml-1"
       >
         <CommentItem
           v-for="reply in replies"

@@ -188,24 +188,24 @@ onMounted(() => {
         <table class="w-full text-sm">
           <thead>
             <tr class="bg-surface-hover text-muted text-left">
-              <th class="px-4 py-3 font-medium">键名</th>
-              <th class="px-4 py-3 font-medium text-right">操作</th>
+              <th class="px-2 py-2 sm:px-4 sm:py-3 font-medium">键名</th>
+              <th class="px-2 py-2 sm:px-4 sm:py-3 font-medium text-right">操作</th>
             </tr>
           </thead>
           <tbody>
             <tr v-if="loading && !keys.length">
-              <td colspan="2" class="px-4 py-8 text-center text-muted">加载中...</td>
+              <td colspan="2" class="px-2 py-6 sm:px-4 sm:py-8 text-center text-muted">加载中...</td>
             </tr>
             <tr v-else-if="!keys.length">
-              <td colspan="2" class="px-4 py-8 text-center text-muted">暂无数据</td>
+              <td colspan="2" class="px-2 py-6 sm:px-4 sm:py-8 text-center text-muted">暂无数据</td>
             </tr>
             <tr
               v-for="k in keys"
               :key="k.name"
               class="border-t border-border-soft hover:bg-surface-hover transition-colors"
             >
-              <td class="px-4 py-3 font-mono text-[#e4e6eb] break-all">{{ k.name }}</td>
-              <td class="px-4 py-3">
+              <td class="px-2 py-2 sm:px-4 sm:py-3 font-mono text-[#e4e6eb] break-all">{{ k.name }}</td>
+              <td class="px-2 py-2 sm:px-4 sm:py-3">
                 <div class="flex justify-end gap-1">
                   <button
                     class="p-1.5 rounded-cute-sm text-muted hover:text-primary hover:bg-surface transition-colors"
@@ -238,7 +238,7 @@ onMounted(() => {
 
     <div
       v-if="showDefaults"
-      class="bg-surface rounded-cute border border-border-soft p-4"
+      class="bg-surface rounded-cute border border-border-soft p-3 sm:p-4"
     >
       <div class="text-sm text-muted mb-3">默认值列表</div>
       <div v-if="loadingDefaults" class="text-muted text-sm">加载中...</div>
@@ -247,7 +247,7 @@ onMounted(() => {
         <div
           v-for="d in defaults"
           :key="d.name"
-          class="border border-border-soft rounded-cute-sm p-3"
+          class="border border-border-soft rounded-cute-sm p-2 sm:p-3"
         >
           <div class="font-mono text-sm text-primary mb-1">{{ d.name }}</div>
           <pre class="text-xs text-[#e4e6eb] whitespace-pre-wrap break-words font-mono">{{ d.value }}</pre>
@@ -259,11 +259,11 @@ onMounted(() => {
       <Transition name="fade">
         <div
           v-if="modalOpen"
-          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4"
           @click.self="closeModal"
         >
           <div class="bg-surface rounded-cute-lg border border-border-soft shadow-soft-lg w-full max-w-2xl">
-            <div class="flex items-center justify-between px-5 py-4 border-b border-border-soft">
+            <div class="flex items-center justify-between px-4 py-3 sm:px-5 sm:py-4 border-b border-border-soft">
               <h3 class="text-base font-semibold text-[#e4e6eb]">{{ modalTitle }}</h3>
               <button
                 class="text-muted hover:text-[#e4e6eb] text-xl leading-none"
@@ -272,7 +272,7 @@ onMounted(() => {
                 ×
               </button>
             </div>
-            <div class="p-5 space-y-4">
+            <div class="p-4 sm:p-5 space-y-4">
               <div>
                 <label class="block text-xs text-muted mb-1">键名</label>
                 <input
@@ -296,7 +296,7 @@ onMounted(() => {
                 />
               </div>
             </div>
-            <div class="flex justify-end gap-2 px-5 py-4 border-t border-border-soft">
+            <div class="flex justify-end gap-2 px-4 py-3 sm:px-5 sm:py-4 border-t border-border-soft">
               <button
                 class="px-4 py-2 rounded-cute bg-surface border border-border-soft text-[#e4e6eb] hover:bg-surface-hover transition-colors"
                 @click="closeModal"

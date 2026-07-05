@@ -23,7 +23,7 @@ function onInput(event: Event) {
       :placeholder="placeholder"
       :rows="rows ?? 16"
       @input="onInput"
-      class="w-full bg-[#0f1419] text-[#e4e6eb] font-mono text-sm p-4 rounded-cute border border-border-soft focus:border-primary focus:outline-none resize-y"
+      class="w-full bg-[#0f1419] text-[#e4e6eb] font-mono text-sm p-3 sm:p-4 rounded-cute border border-border-soft focus:border-primary focus:outline-none resize-y"
     ></textarea>
   </div>
 </template>

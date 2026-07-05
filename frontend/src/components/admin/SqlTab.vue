@@ -107,7 +107,7 @@ async function execute() {
   <div class="space-y-4">
     <h2 class="text-xl font-semibold text-[#e4e6eb]">SQL 执行</h2>
 
-    <div class="bg-surface rounded-cute border border-border-soft p-4 space-y-3">
+    <div class="bg-surface rounded-cute border border-border-soft p-3 sm:p-4 space-y-3">
       <div class="flex items-center gap-2 flex-wrap">
         <Zap class="w-4 h-4 text-muted" />
         <span class="text-xs text-muted">快捷模板：</span>
@@ -142,7 +142,7 @@ async function execute() {
 
     <div
       v-if="error"
-      class="bg-red-500/10 border border-red-500/40 rounded-cute p-4 text-red-400 text-sm break-words"
+      class="bg-red-500/10 border border-red-500/40 rounded-cute p-3 sm:p-4 text-red-400 text-sm break-words"
     >
       <div class="font-medium mb-1">执行出错</div>
       <pre class="whitespace-pre-wrap break-words font-mono text-xs">{{ error }}</pre>
@@ -156,7 +156,7 @@ async function execute() {
       <div
         v-for="(r, i) in results"
         :key="i"
-        class="bg-surface rounded-cute border border-border-soft p-4"
+        class="bg-surface rounded-cute border border-border-soft p-3 sm:p-4"
       >
         <div class="flex items-center justify-between mb-3">
           <div class="flex items-center gap-2 text-sm text-[#e4e6eb]">
@@ -184,11 +184,11 @@ async function execute() {
             <table class="w-full text-xs">
               <thead>
                 <tr class="bg-surface-hover text-muted text-left">
-                  <th class="px-3 py-2 font-medium">#</th>
+                  <th class="px-2 py-1.5 sm:px-3 sm:py-2 font-medium">#</th>
                   <th
                     v-for="col in getColumns(r)"
                     :key="col"
-                    class="px-3 py-2 font-medium whitespace-nowrap"
+                    class="px-2 py-1.5 sm:px-3 sm:py-2 font-medium whitespace-nowrap"
                   >
                     {{ col }}
                   </th>
@@ -200,11 +200,11 @@ async function execute() {
                   :key="ri"
                   class="border-t border-border-soft"
                 >
-                  <td class="px-3 py-2 text-muted">{{ ri + 1 }}</td>
+                  <td class="px-2 py-1.5 sm:px-3 sm:py-2 text-muted">{{ ri + 1 }}</td>
                   <td
                     v-for="col in getColumns(r)"
                     :key="col"
-                    class="px-3 py-2 font-mono text-[#e4e6eb] break-all max-w-[400px]"
+                    class="px-2 py-1.5 sm:px-3 sm:py-2 font-mono text-[#e4e6eb] break-all max-w-[400px]"
                   >
                     {{ formatCell(row[col]) }}
                   </td>

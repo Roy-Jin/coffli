@@ -51,9 +51,9 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center px-4 py-8">
+  <div class="min-h-screen flex items-center justify-center px-3 py-6 sm:px-4 sm:py-8">
     <div
-      class="bg-surface rounded-cute-lg p-8 shadow-soft-lg border border-border-soft max-w-md w-full"
+      class="bg-surface rounded-cute-lg p-6 sm:p-8 shadow-soft-lg border border-border-soft max-w-md w-full"
     >
       <!-- Logo + Title -->
       <div class="text-center mb-8">

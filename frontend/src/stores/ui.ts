@@ -13,6 +13,7 @@ let nextId = 1;
 
 export const useUiStore = defineStore("ui", () => {
   const toasts = ref<Toast[]>([]);
+  const isRouting = ref(false);
 
   function addToast(type: ToastType, message: string) {
     const id = nextId++;
@@ -25,5 +26,9 @@ export const useUiStore = defineStore("ui", () => {
     if (idx !== -1) toasts.value.splice(idx, 1);
   }
 
-  return { toasts, addToast, removeToast };
+  function setRouting(value: boolean) {
+    isRouting.value = value;
+  }
+
+  return { toasts, isRouting, addToast, removeToast, setRouting };
 });

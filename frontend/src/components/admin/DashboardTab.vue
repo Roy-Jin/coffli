@@ -72,7 +72,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="space-y-4 sm:space-y-6">
     <div class="flex items-center justify-between flex-wrap gap-3">
       <h2 class="text-xl font-semibold text-[#e4e6eb]">控制台概览</h2>
       <div class="flex gap-2">
@@ -96,7 +96,7 @@ onMounted(() => {
     </div>
 
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-      <div class="bg-surface rounded-cute p-6 border border-border-soft shadow-soft">
+      <div class="bg-surface rounded-cute p-4 sm:p-6 border border-border-soft shadow-soft">
         <div class="flex items-center gap-2 text-muted text-sm mb-2">
           <Zap class="w-4 h-4" />
           <span>KV 键总数</span>
@@ -106,7 +106,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="bg-surface rounded-cute p-6 border border-border-soft shadow-soft">
+      <div class="bg-surface rounded-cute p-4 sm:p-6 border border-border-soft shadow-soft">
         <div class="flex items-center gap-2 text-muted text-sm mb-2">
           <Database class="w-4 h-4" />
           <span>数据库初始化状态</span>
@@ -124,7 +124,7 @@ onMounted(() => {
 
     <div
       v-if="initMessage"
-      class="bg-surface rounded-cute p-4 border border-border-soft"
+      class="bg-surface rounded-cute p-3 sm:p-4 border border-border-soft"
     >
       <div class="text-xs text-muted mb-1 uppercase tracking-wide">响应消息</div>
       <pre class="text-sm text-[#e4e6eb] whitespace-pre-wrap break-words font-sans">{{ initMessage }}</pre>

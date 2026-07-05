@@ -21,7 +21,7 @@ const IconComp = computed(
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center text-center py-12 px-4">
+  <div class="flex flex-col items-center justify-center text-center py-10 sm:py-12 px-3 sm:px-4">
     <component
       :is="IconComp"
       :size="48"

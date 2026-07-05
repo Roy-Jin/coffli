@@ -63,12 +63,12 @@ function go(p: number) {
 <template>
   <nav
     v-if="totalPages > 1"
-    class="flex items-center justify-center gap-1.5 select-none"
+    class="flex items-center justify-center gap-1 sm:gap-1.5 select-none"
     aria-label="pagination"
   >
     <button
       type="button"
-      class="inline-flex items-center justify-center w-9 h-9 rounded-cute-sm border border-border-soft text-[#e4e6eb] hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      class="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-cute-sm border border-border-soft text-[#e4e6eb] hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       :disabled="page <= 1"
       aria-label="上一页"
       @click="go(page - 1)"
@@ -79,14 +79,14 @@ function go(p: number) {
     <template v-for="(item, idx) in items" :key="idx">
       <span
         v-if="item === '...'"
-        class="inline-flex items-center justify-center w-9 h-9 text-muted text-sm"
+        class="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 text-muted text-sm"
         >...</span
       >
       <button
         v-else
         type="button"
         :class="[
-          'inline-flex items-center justify-center min-w-9 h-9 px-2 rounded-cute-sm text-sm border transition-colors',
+          'inline-flex items-center justify-center min-w-8 h-8 sm:min-w-9 sm:h-9 px-2 rounded-cute-sm text-sm border transition-colors',
           item === page
             ? 'bg-primary text-white border-primary'
             : 'border-border-soft text-[#e4e6eb] hover:bg-surface-hover',
@@ -99,7 +99,7 @@ function go(p: number) {
 
     <button
       type="button"
-      class="inline-flex items-center justify-center w-9 h-9 rounded-cute-sm border border-border-soft text-[#e4e6eb] hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      class="inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-cute-sm border border-border-soft text-[#e4e6eb] hover:bg-surface-hover disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       :disabled="page >= totalPages"
       aria-label="下一页"
       @click="go(page + 1)"

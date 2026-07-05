@@ -79,13 +79,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
     <Transition name="fade">
       <div
         v-if="visible"
-        class="fixed inset-0 z-[60] flex items-start justify-center pt-[15vh] px-4 bg-black/50 backdrop-blur-sm"
+        class="fixed inset-0 z-[60] flex items-start justify-center pt-[10vh] px-3 sm:pt-[15vh] sm:px-4 bg-black/50 backdrop-blur-sm"
         @click.self="close"
       >
         <div
           class="w-full max-w-xl rounded-cute border border-border-soft bg-surface/95 backdrop-blur-md shadow-soft-xl overflow-hidden"
         >
-          <div class="flex items-center gap-3 px-4 py-3 border-b border-border-soft">
+          <div class="flex items-center gap-3 px-3 py-2.5 sm:px-4 sm:py-3 border-b border-border-soft">
             <Search :size="18" class="text-muted" />
             <input
               ref="inputRef"
@@ -108,13 +108,13 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               搜索中...
             </div>
 
-            <div v-else-if="!query.trim()" class="px-4 py-6 text-center text-muted text-sm">
+            <div v-else-if="!query.trim()" class="px-3 py-5 sm:px-4 sm:py-6 text-center text-muted text-sm">
               输入关键词搜索文章，或按
               <kbd class="px-1.5 py-0.5 rounded bg-surface-hover text-xs">Esc</kbd>
               关闭
             </div>
 
-            <div v-else-if="!results.length" class="px-4 py-8 text-center text-muted text-sm">
+            <div v-else-if="!results.length" class="px-3 py-6 sm:px-4 sm:py-8 text-center text-muted text-sm">
               没有找到匹配的文章
             </div>
 
@@ -123,7 +123,7 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
               v-else
               :key="post.id"
               :to="`/post/${post.author.github_login}/${post.slug}`"
-              class="flex items-start gap-3 px-4 py-3 hover:bg-surface-hover transition-colors"
+              class="flex items-start gap-3 px-3 py-2.5 sm:px-4 sm:py-3 hover:bg-surface-hover transition-colors"
               @click="close"
             >
               <UserAvatar

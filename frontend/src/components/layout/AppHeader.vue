@@ -63,7 +63,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
   <header
     class="sticky top-0 z-40 bg-surface/80 backdrop-blur-md border-b border-border-soft"
   >
-    <div class="mx-auto max-w-5xl px-4">
+    <div class="mx-auto max-w-5xl px-3 sm:px-4">
       <div class="flex h-14 items-center justify-between gap-3">
         <!-- Logo -->
         <RouterLink
@@ -129,7 +129,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
             <Transition name="fade">
               <div
                 v-if="menuOpen"
-                class="absolute right-0 mt-2 w-44 rounded-cute border border-border-soft bg-surface/95 backdrop-blur-md shadow-soft-lg py-1 z-50"
+                class="absolute right-0 mt-2 w-44 rounded-cute border border-border-soft bg-surface/95 backdrop-blur-md shadow-soft-lg py-1 z-50 overflow-hidden"
               >
                 <RouterLink
                   :to="`/user/${userStore.user?.github_login}`"
@@ -186,7 +186,7 @@ onBeforeUnmount(() => document.removeEventListener("click", onDocClick));
       <Transition name="slide-up">
         <nav
           v-if="mobileMenuOpen"
-          class="md:hidden flex flex-col gap-1 py-3 border-t border-border-soft"
+          class="md:hidden flex flex-col gap-1 py-2 sm:py-3 border-t border-border-soft"
         >
           <button
             type="button"

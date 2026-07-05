@@ -101,7 +101,7 @@ watch(isChildRoute, (isChild) => {
   <div v-else class="min-h-screen flex flex-col">
     <AppHeader />
 
-    <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-8">
+    <main class="flex-1 w-full max-w-5xl mx-auto px-3 py-5 sm:px-4 sm:py-8">
       <!-- Loading -->
       <div v-if="loading" class="py-24">
         <LoadingSpinner :size="32" />
@@ -127,11 +127,11 @@ watch(isChildRoute, (isChild) => {
       <!-- Article -->
       <article
         v-else-if="post"
-        class="grid grid-cols-1 lg:grid-cols-3 gap-8"
+        class="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8"
       >
         <!-- Main content -->
         <div class="lg:col-span-2 min-w-0">
-          <header class="mb-6">
+          <header class="mb-4 sm:mb-6">
             <h1 class="font-display text-3xl font-bold text-[#e4e6eb] leading-tight">
               {{ post.title }}
             </h1>
@@ -168,14 +168,14 @@ watch(isChildRoute, (isChild) => {
           </header>
 
           <!-- Body -->
-          <div class="bg-surface rounded-cute-lg border border-border-soft p-6">
+          <div class="bg-surface rounded-cute-lg border border-border-soft p-4 sm:p-6">
             <MarkdownRenderer :content="post.content" />
           </div>
 
           <!-- Action bar -->
           <div
             v-if="canManage"
-            class="flex items-center gap-3 mt-6 pt-6 border-t border-border-soft"
+            class="flex items-center gap-3 mt-4 pt-4 sm:mt-6 sm:pt-6 border-t border-border-soft"
           >
             <RouterLink
               :to="`/post/${post.author.github_login}/${post.slug}/edit`"
@@ -196,7 +196,7 @@ watch(isChildRoute, (isChild) => {
           </div>
 
           <!-- Comments -->
-          <div class="mt-10">
+          <div class="mt-8 sm:mt-10">
             <CommentList :slug="post.slug" />
           </div>
         </div>

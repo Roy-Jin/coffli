@@ -83,11 +83,11 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#0f1419] p-6">
+  <div class="min-h-screen bg-[#0f1419] p-3 sm:p-6">
     <!-- Login form -->
     <div v-if="!auth" class="flex items-center justify-center min-h-[80vh]">
       <div
-        class="w-full max-w-md bg-surface rounded-cute-lg p-6 border border-border-soft shadow-soft"
+        class="w-full max-w-md bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft shadow-soft"
       >
         <div class="flex items-center gap-2 mb-6">
           <Lock :size="20" class="text-primary" />
@@ -127,7 +127,7 @@ onMounted(() => {
 
     <!-- Admin panel -->
     <div v-if="auth" class="max-w-6xl mx-auto">
-      <header class="flex items-center justify-between mb-6">
+      <header class="flex items-center justify-between mb-4 sm:mb-6">
         <h1 class="font-display text-xl font-semibold text-[#e4e6eb]">
           Coffli 管理后台
         </h1>
@@ -141,7 +141,7 @@ onMounted(() => {
         </button>
       </header>
 
-      <nav class="flex gap-2 mb-6">
+      <nav class="flex gap-2 mb-4 sm:mb-6">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -159,7 +159,7 @@ onMounted(() => {
         </button>
       </nav>
 
-      <div class="bg-surface rounded-cute-lg p-6 border border-border-soft">
+      <div class="bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft">
         <DashboardTab v-if="activeTab === 'dashboard'" :auth="auth" />
         <KvTab v-else-if="activeTab === 'kv'" :auth="auth" />
         <SqlTab v-else :auth="auth" />

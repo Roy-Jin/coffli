@@ -98,7 +98,7 @@ watch(username, () => loadUser(), { immediate: true });
   <div class="min-h-screen flex flex-col">
     <AppHeader />
     <main class="flex-1">
-      <div class="mx-auto max-w-5xl px-4 py-8">
+      <div class="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-8">
         <!-- Loading -->
         <div v-if="loading" class="flex justify-center py-20">
           <LoadingSpinner :size="32" />
@@ -120,12 +120,12 @@ watch(username, () => loadUser(), { immediate: true });
         </EmptyState>
 
         <!-- User profile -->
-        <div v-else-if="user" class="space-y-6">
+        <div v-else-if="user" class="space-y-4 sm:space-y-6">
           <!-- Profile header card -->
           <section
-            class="bg-surface rounded-cute-lg p-6 border border-border-soft shadow-soft"
+            class="bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft shadow-soft"
           >
-            <div class="flex flex-col sm:flex-row gap-5">
+            <div class="flex flex-col sm:flex-row gap-4 sm:gap-5">
               <UserAvatar
                 :src="user.avatar_url"
                 :name="displayName"
@@ -168,7 +168,7 @@ watch(username, () => loadUser(), { immediate: true });
           <!-- Bio module -->
           <section
             v-if="user.bio"
-            class="bg-surface rounded-cute-lg p-6 border border-border-soft"
+            class="bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft"
           >
             <h2 class="text-lg font-semibold text-[#e4e6eb] mb-4">个人简介</h2>
             <div class="text-sm text-[#e4e6eb] leading-relaxed">
@@ -177,8 +177,8 @@ watch(username, () => loadUser(), { immediate: true });
           </section>
 
           <!-- Posts module -->
-          <section class="bg-surface rounded-cute-lg p-6 border border-border-soft">
-            <h2 class="text-lg font-semibold text-[#e4e6eb] mb-4">
+          <section class="bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft">
+            <h2 class="text-lg font-semibold text-[#e4e6eb] mb-3 sm:mb-4">
               文章
               <span class="ml-2 text-xs font-normal text-muted">({{ posts.length }})</span>
             </h2>
@@ -227,7 +227,7 @@ watch(username, () => loadUser(), { immediate: true });
           </section>
 
           <!-- Guestbook module -->
-          <section class="bg-surface rounded-cute-lg p-6 border border-border-soft">
+          <section class="bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft">
             <GuestbookList :username="username" />
           </section>
         </div>

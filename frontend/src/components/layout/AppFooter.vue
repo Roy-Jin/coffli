@@ -9,7 +9,7 @@ const year = new Date().getFullYear();
     class="border-t border-border-soft bg-surface/40 backdrop-blur-sm mt-auto"
   >
     <div
-      class="mx-auto max-w-5xl px-4 py-6 flex flex-col sm:flex-row items-center justify-center gap-2 text-sm text-muted"
+      class="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-6 flex flex-col sm:flex-row items-center justify-center gap-2 text-sm text-muted"
     >
       <p class="flex items-center gap-1.5">
         <span>© {{ year }} Coffli</span>

@@ -83,17 +83,17 @@ onMounted(() => {
 
 <template>
   <div>
-    <h3 class="text-lg font-semibold text-[#e4e6eb] mb-4">
+    <h3 class="text-lg font-semibold text-[#e4e6eb] mb-3 sm:mb-4">
       {{ messages.length }} 条留言
     </h3>
 
     <GuestbookForm :username="username" @submitted="handleSubmitted" />
 
-    <div v-if="loading" class="mt-6 flex justify-center">
+    <div v-if="loading" class="mt-4 sm:mt-6 flex justify-center">
       <LoadingSpinner />
     </div>
 
-    <div v-else-if="error" class="mt-6">
+    <div v-else-if="error" class="mt-4 sm:mt-6">
       <div class="text-red-400 text-sm mb-3">{{ error }}</div>
       <button
         class="bg-surface-hover text-[#e4e6eb] rounded-cute-sm px-4 py-2 text-sm hover:opacity-80 transition-opacity"
@@ -103,15 +103,15 @@ onMounted(() => {
       </button>
     </div>
 
-    <div v-else-if="topLevelMessages.length === 0" class="mt-6">
+    <div v-else-if="topLevelMessages.length === 0" class="mt-4 sm:mt-6">
       <EmptyState title="还没有留言" description="快来留下第一条祝福吧" icon="Mail" />
     </div>
 
-    <div v-else class="mt-4 divide-y divide-border-soft">
+    <div v-else class="mt-3 sm:mt-4 divide-y divide-border-soft">
       <div
         v-for="msg in topLevelMessages"
         :key="msg.id"
-        class="flex gap-3 py-4"
+        class="flex gap-2.5 sm:gap-3 py-3 sm:py-4"
       >
         <UserAvatar
           :src="msg.author.avatar_url"
@@ -165,12 +165,12 @@ onMounted(() => {
 
           <div
             v-if="repliesOf(msg.id).length > 0"
-            class="mt-2 border-l border-border-soft pl-4 ml-1 space-y-0"
+            class="mt-2 border-l border-border-soft pl-3 ml-0.5 sm:pl-4 sm:ml-1 space-y-0"
           >
             <div
               v-for="reply in repliesOf(msg.id)"
               :key="reply.id"
-              class="flex gap-3 py-3"
+              class="flex gap-2.5 sm:gap-3 py-2.5 sm:py-3"
             >
               <UserAvatar
                 :src="reply.author.avatar_url"

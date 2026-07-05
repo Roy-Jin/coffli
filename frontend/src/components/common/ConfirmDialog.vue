@@ -69,7 +69,7 @@ onBeforeUnmount(() => {
     <Transition name="fade">
       <div
         v-if="modelValue"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+        class="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
         @click.self="onCancel"
       >
         <div
@@ -79,7 +79,7 @@ onBeforeUnmount(() => {
         <div
           role="dialog"
           aria-modal="true"
-          class="relative w-full max-w-md rounded-cute-lg border border-border-soft bg-surface/90 backdrop-blur-md shadow-soft-lg p-6"
+          class="relative w-full max-w-md rounded-cute-lg border border-border-soft bg-surface/90 backdrop-blur-md shadow-soft-lg p-4 sm:p-6"
         >
           <h3 class="text-lg font-display font-semibold text-[#e4e6eb]">
             {{ title }}
@@ -87,7 +87,7 @@ onBeforeUnmount(() => {
           <p v-if="message" class="mt-2 text-sm text-muted leading-relaxed">
             {{ message }}
           </p>
-          <div class="mt-6 flex items-center justify-end gap-3">
+          <div class="mt-4 sm:mt-6 flex items-center justify-end gap-3">
             <button
               type="button"
               class="px-4 py-2 rounded-cute-sm border border-border-soft text-[#e4e6eb] hover:bg-surface-hover transition-colors"

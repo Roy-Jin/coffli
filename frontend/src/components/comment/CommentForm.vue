@@ -60,18 +60,18 @@ function handleCancel() {
 <template>
   <div
     v-if="!userStore.isLoggedIn"
-    class="bg-surface rounded-cute p-4 border border-border-soft text-muted text-sm"
+    class="bg-surface rounded-cute p-3 sm:p-4 border border-border-soft text-muted text-sm"
   >
     请先<router-link to="/login" class="text-primary hover:text-primary-hover underline">登录</router-link>后再评论
   </div>
-  <div v-else class="bg-surface rounded-cute p-4 border border-border-soft">
+  <div v-else class="bg-surface rounded-cute p-3 sm:p-4 border border-border-soft">
     <textarea
       v-model="content"
       :placeholder="placeholder"
       rows="3"
-      class="w-full bg-[#0f1419] rounded-cute-sm p-3 border border-border-soft focus:border-primary focus:outline-none text-sm text-[#e4e6eb] resize-none placeholder:text-muted"
+      class="w-full bg-[#0f1419] rounded-cute-sm p-2.5 sm:p-3 border border-border-soft focus:border-primary focus:outline-none text-sm text-[#e4e6eb] resize-none placeholder:text-muted"
     ></textarea>
-    <div class="flex justify-end gap-2 mt-3">
+    <div class="flex justify-end gap-2 mt-2 sm:mt-3">
       <button
         v-if="parentId"
         type="button"

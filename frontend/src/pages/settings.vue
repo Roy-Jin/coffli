@@ -18,12 +18,12 @@ const nav = [
   <div class="min-h-screen flex flex-col">
     <AppHeader />
     <main class="flex-1">
-      <div class="mx-auto max-w-5xl px-4 py-8">
-        <h1 class="font-display text-2xl font-semibold text-[#e4e6eb] mb-6">
+      <div class="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-8">
+        <h1 class="font-display text-2xl font-semibold text-[#e4e6eb] mb-4 sm:mb-6">
           设置
         </h1>
 
-        <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-[200px_1fr] gap-4 sm:gap-6">
           <!-- Settings sidebar -->
           <nav class="space-y-1">
             <RouterLink
@@ -43,7 +43,7 @@ const nav = [
           </nav>
 
           <!-- Settings content -->
-          <div class="bg-surface rounded-cute-lg p-6 border border-border-soft">
+          <div class="bg-surface rounded-cute-lg p-4 sm:p-6 border border-border-soft">
             <RouterView />
           </div>
         </div>

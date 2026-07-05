@@ -40,7 +40,7 @@ async function updatePassword() {
 
 <template>
   <div>
-    <h2 class="flex items-center gap-2 text-lg font-semibold text-[#e4e6eb] mb-4">
+    <h2 class="flex items-center gap-2 text-lg font-semibold text-[#e4e6eb] mb-3 sm:mb-4">
       <Lock :size="18" class="text-muted" />
       {{ hasPassword ? "修改密码" : "设置密码" }}
     </h2>
