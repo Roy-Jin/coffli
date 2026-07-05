@@ -9,7 +9,6 @@ const userStore = useUserStore();
 const toast = useToast();
 
 const displayName = ref("");
-const email = ref("");
 const bio = ref("");
 const saving = ref(false);
 
@@ -17,7 +16,6 @@ function syncFromUser() {
   const u = userStore.user;
   if (!u) return;
   displayName.value = u.display_name ?? "";
-  email.value = u.email ?? "";
   bio.value = u.bio ?? "";
 }
 
@@ -32,7 +30,6 @@ async function saveProfile() {
   try {
     const res = await updateMe({
       display_name: displayName.value,
-      email: email.value,
       bio: bio.value,
     });
     userStore.setUser(res.user);
@@ -80,22 +77,12 @@ async function saveProfile() {
         />
       </div>
       <div>
-        <label class="block text-xs text-muted mb-1">邮箱</label>
-        <input
-          disabled
-          v-model="email"
-          type="email"
-          placeholder="you@example.com"
-          class="w-full bg-[#0f1419] rounded-cute-sm px-3 py-2 border border-border-soft text-sm text-[#e4e6eb] focus:outline-none focus:border-primary transition-colors"
-        />
-      </div>
-      <div>
         <label class="block text-xs text-muted mb-1">个人简介</label>
         <textarea
           v-model="bio"
           rows="4"
           placeholder="介绍一下自己..."
-          class="w-full bg-[#0f1419] rounded-cute-sm px-3 py-2 border border-border-soft text-sm text-[#e4e6eb] focus:outline-none focus:border-primary transition-colors resize-none"
+          class="w-full bg-[#0f1419] rounded-cute-sm px-3 py-2 border border-border-soft text-sm text-[#e4e6eb] focus:outline-none focus:border-primary transition-colors resize-y min-h-[120px]"
         ></textarea>
       </div>
       <div class="flex justify-end">

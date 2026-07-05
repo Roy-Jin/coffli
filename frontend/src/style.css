@@ -38,8 +38,8 @@ body {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -48,12 +48,19 @@ body {
 
 ::-webkit-scrollbar-thumb {
   background: #2a323c;
-  border-radius: 8px;
-  border: 2px solid #0f1419;
+  background-clip: padding-box;
+  border-radius: 9999px;
+  border: 2px solid transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #45969c;
+  background-clip: padding-box;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a323c transparent;
 }
 
 ::selection {
@@ -77,7 +84,6 @@ button {
 
 input,
 textarea {
-  overflow: hidden;
   font-family: var(--font-sans);
 }
 

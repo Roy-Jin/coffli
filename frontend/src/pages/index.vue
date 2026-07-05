@@ -7,7 +7,6 @@ import AppFooter from "@/components/layout/AppFooter.vue";
 import PostCard from "@/components/post/PostCard.vue";
 import LoadingSpinner from "@/components/common/LoadingSpinner.vue";
 import EmptyState from "@/components/common/EmptyState.vue";
-import TagBadge from "@/components/common/TagBadge.vue";
 import { getPosts } from "@/api/posts";
 import { useUserStore } from "@/stores/user";
 import type { Post } from "@/types/api";
@@ -26,9 +25,6 @@ const filteredPosts = computed(() => {
     return bTime - aTime;
   });
 });
-
-const featuredPost = computed(() => filteredPosts.value[0] ?? null);
-const restPosts = computed(() => filteredPosts.value.slice(1));
 
 async function loadPosts() {
   loading.value = true;
@@ -50,16 +46,16 @@ onMounted(loadPosts);
   <div class="min-h-screen flex flex-col">
     <AppHeader />
 
-    <main class="flex-1">
-      <!-- Hero -->
-      <section class="relative overflow-hidden">
-        <!-- Decorative gradient blobs -->
-        <div class="pointer-events-none absolute inset-0 -z-10">
-          <div class="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-primary/20 blur-3xl"></div>
-          <div class="absolute -top-32 right-0 w-80 h-80 rounded-full bg-primary-soft/15 blur-3xl"></div>
-          <div class="absolute top-20 left-1/2 -translate-x-1/2 w-[600px] h-32 rounded-full bg-primary/10 blur-3xl"></div>
-        </div>
+    <main class="flex-1 relative overflow-hidden">
+      <!-- Decorative gradient blobs -->
+      <div class="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[420px] overflow-hidden">
+        <div class="absolute -top-12 -left-12 w-80 h-80 rounded-full bg-primary/20 blur-3xl"></div>
+        <div class="absolute -top-16 right-0 w-72 h-72 rounded-full bg-primary-soft/15 blur-3xl"></div>
+        <div class="absolute top-8 left-1/2 -translate-x-1/2 w-[500px] h-32 rounded-full bg-primary/10 blur-3xl"></div>
+      </div>
 
+      <!-- Hero -->
+      <section>
         <div class="mx-auto max-w-5xl px-3 sm:px-4 pt-14 pb-8 sm:pt-20 sm:pb-12 text-center">
           <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-primary/30 bg-primary/10 text-primary text-xs mb-6">
             <Sparkles :size="12" />
@@ -136,62 +132,13 @@ onMounted(loadPosts);
           description="快来发布第一篇文章吧"
         />
 
-        <template v-else>
-          <!-- Featured post (first one) -->
-          <RouterLink
-            v-if="featuredPost"
-            :to="`/post/${featuredPost.author.github_login}/${featuredPost.slug}`"
-            class="group block mb-6 sm:mb-8 relative overflow-hidden rounded-cute-lg border border-border-soft bg-surface hover:border-primary/40 transition-all hover:shadow-soft-lg"
-          >
-            <div class="grid grid-cols-1 md:grid-cols-2">
-              <!-- Visual side -->
-              <div class="relative h-40 md:h-full min-h-[200px] bg-gradient-to-br from-primary/20 via-primary-soft/10 to-surface overflow-hidden">
-                <div class="absolute inset-0 flex items-center justify-center">
-                  <Coffee :size="80" class="text-primary/30 group-hover:scale-110 transition-transform duration-500" />
-                </div>
-                <div v-if="featuredPost.is_pinned" class="absolute top-3 left-3 sm:top-4 sm:left-4 inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/90 text-white text-xs font-medium">
-                  <Sparkles :size="12" />
-                  置顶
-                </div>
-              </div>
-              <!-- Content side -->
-              <div class="p-3 sm:p-6 md:p-8 flex flex-col justify-center">
-                <div class="flex items-center gap-2 text-xs text-muted mb-2 sm:mb-3">
-                  <span class="inline-flex items-center gap-1">
-                    <Coffee :size="12" />
-                    精选文章
-                  </span>
-                </div>
-                <h3 class="font-display text-xl sm:text-2xl font-semibold text-[#e4e6eb] group-hover:text-primary transition-colors leading-tight">
-                  {{ featuredPost.title }}
-                </h3>
-                <p v-if="featuredPost.summary" class="mt-2 sm:mt-3 text-sm text-muted line-clamp-2 leading-relaxed">
-                  {{ featuredPost.summary }}
-                </p>
-                <div v-if="featuredPost.tags.length" class="flex flex-wrap gap-2 mt-3 sm:mt-4">
-                  <TagBadge
-                    v-for="tag in featuredPost.tags.slice(0, 3)"
-                    :key="tag.id"
-                    :name="tag.name"
-                  />
-                </div>
-                <div class="flex items-center gap-2 mt-4 sm:mt-5 text-sm text-primary">
-                  <span>阅读全文</span>
-                  <ArrowRight :size="16" class="group-hover:translate-x-1 transition-transform" />
-                </div>
-              </div>
-            </div>
-          </RouterLink>
-
-          <!-- Rest of posts -->
-          <div v-if="restPosts.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
-            <PostCard
-              v-for="post in restPosts"
-              :key="post.id"
-              :post="post"
-            />
-          </div>
-        </template>
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+          <PostCard
+            v-for="post in filteredPosts"
+            :key="post.id"
+            :post="post"
+          />
+        </div>
       </section>
     </main>
 
